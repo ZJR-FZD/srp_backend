@@ -1,0 +1,12 @@
+{
+  "mcp_servers": [
+    {
+      "id": "",
+      "url": "",
+      "headers": {},
+      "timeout": 60
+    }
+  ],
+  "cache_ttl_seconds": 3600,
+  "force_refresh_on_init": false
+}

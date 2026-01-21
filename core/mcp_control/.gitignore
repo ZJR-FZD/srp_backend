@@ -1,0 +1,22 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# pytest
+.pytest_cache/
+
+# test result
+test/temp/
+
+# mcp server config
+mcp_server.json
+
+# Auto-generated tool index (can be regenerated from MCP Servers)
+mcp_tool_index.json
