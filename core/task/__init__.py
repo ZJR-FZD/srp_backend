@@ -7,10 +7,10 @@ from core.task.loop import UnifiedTaskLoop
 from core.task.trigger import PeriodicTaskTrigger
 from core.task.executors import (
     BaseTaskExecutor,
-    PatrolExecutor,
     McpExecutor,
     UserTaskExecutor,
-    ActionChainExecutor
+    ActionChainExecutor,
+    ConversationExecutor
 )
 
 __all__ = [
@@ -22,7 +22,6 @@ __all__ = [
     "UnifiedTaskLoop",
     "PeriodicTaskTrigger",
     "BaseTaskExecutor",
-    "PatrolExecutor",
     "McpExecutor",
     "UserTaskExecutor",
     "ActionChainExecutor"

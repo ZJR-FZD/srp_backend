@@ -17,3 +17,8 @@ test/temp/
 
 # qoder
 .qoder
+
+# ===== env =====
+.env
+*.env
+

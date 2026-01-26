@@ -1,7 +1,7 @@
 """ConversationActionEnhanced - 增强版语音对话（永久待机版）
 
 新增功能：
-1. 语音唤醒（"你好小艾"）- 永久待机，循环唤醒
+1. 语音唤醒（"你好小爱"）- 永久待机，循环唤醒
 2. 自然结束（静音超时 / "再见"关键词）
 3. 更快的响应速度
 4. 更自然的交互体验
@@ -25,7 +25,7 @@ class ConversationActionEnhanced(BaseAction):
     
     核心特性：
     - 永久待机：聊天结束后自动回到唤醒监听状态
-    - 语音唤醒：说"你好小艾"启动对话
+    - 语音唤醒：说"你好小爱"启动对话
     - 自动结束：连续无语音或说"再见"
     - 优雅退出：支持 Ctrl+C 手动终止
     """
@@ -40,7 +40,7 @@ class ConversationActionEnhanced(BaseAction):
         self.max_history_length = 10
         
         # 唤醒词配置 - 永久待机关键：取消唤醒超时，设为None（无限等待）
-        self.wake_words = ["你好小艾", "小艾", "hey ai","你好小爱", "小爱","小爱同学"]
+        self.wake_words = ["你好小爱", "小爱","小爱同学"]
         self.wake_timeout = None  # 改为None：无限等待唤醒词，不再超时终止
         
         # 结束配置
@@ -350,7 +350,7 @@ class ConversationActionEnhanced(BaseAction):
             messages = [
                 {
                     "role": "system",
-                    "content": "你是小艾，一个友好、幽默的聊天机器人。"
+                    "content": "你是小爱，一个友好、幽默的聊天机器人。"
                                "请用简洁、自然、口语化的中文回答。"
                                "回答要简短（1-2句话），适合语音播报，不要在最后加上表情或动作描述词，因为你是在对话。"
                                "保持轻松愉快的聊天氛围。"
@@ -442,7 +442,7 @@ async def conversation_enhanced_test():
     print("增强版语音对话测试（永久待机版）")
     print("="*60)
     print("\n功能:")
-    print("  1. 说 '你好小艾' 唤醒（永久待机，循环唤醒）")
+    print("  1. 说 '你好小爱' 唤醒（永久待机，循环唤醒）")
     print("  2. 自由聊天")
     print("  3. 说 '再见' 或 30 秒无语音自动结束聊天（回到待机）")
     print("  4. 按 Ctrl+C 手动退出程序")
@@ -450,7 +450,7 @@ async def conversation_enhanced_test():
     
     action = ConversationActionEnhanced()
     action.initialize({
-        "wake_words": ["你好小艾", "小艾", "hey ai","你好，小爱", "小爱","小爱同学"],
+        "wake_words": ["hey ai","你好，小爱", "小爱","小爱同学"],
         "wake_timeout": None,  # 永久待机
         "idle_timeout": 30.0,
         "max_idle_rounds": 2,

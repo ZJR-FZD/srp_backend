@@ -9,7 +9,8 @@ import os
 from datetime import datetime
 from typing import Dict, List, Optional
 from dataclasses import dataclass, asdict
-
+from core.mcp_control.tools.rag_search import RAGSearchTool
+from core.mcp_control.tools.web_search import DuckDuckGoSearchTool
 
 @dataclass
 class ToolIndexEntry:
@@ -27,7 +28,6 @@ class ToolIndexEntry:
         if not self.last_updated:
             self.last_updated = datetime.now().isoformat()
 
-
 class ToolIndex:
     """Tool Index 管理器
     
@@ -40,6 +40,67 @@ class ToolIndex:
         self.tools: Dict[str, ToolIndexEntry] = {}  # tool_name -> ToolIndexEntry
         self.last_sync: Optional[str] = None
         print("[ToolIndex] Initialized")
+
+        # 👇 新增：本地工具实例注册表
+        self.local_tool_instances = {}
+        # 👇 注入本地 / HTTP 工具
+        self._register_local_tools()
+    
+    def _register_local_tools(self):
+        # 1. RAG 搜索工具
+        rag_tool = RAGSearchTool()
+        rag_entry = ToolIndexEntry(
+            server_id="local-http",
+            tool_name=RAGSearchTool.name,
+            description=RAGSearchTool.description,
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "搜索本地知识库"}
+                },
+                "required": ["query"]
+            },
+            tags=["rag", "knowledge", "search"],
+            blocking=True,
+            cost_estimate="low"
+        )
+        self.tools[rag_entry.tool_name] = rag_entry
+        self.local_tool_instances[rag_entry.tool_name] = rag_tool  # 👈 注册实例
+        print(f"[ToolIndex] Local tool registered: {rag_entry.tool_name}")
+        
+        # 2. Web 搜索工具（新增）
+        web_tool = DuckDuckGoSearchTool()  # 👈 创建实例
+        web_entry = ToolIndexEntry(
+            server_id="local-web",
+            tool_name=DuckDuckGoSearchTool.name,
+            description=DuckDuckGoSearchTool.description,
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "网络搜索"},
+                    "max_results": {"type": "integer", "description": "最大结果数", "default": 5}
+                },
+                "required": ["query"]
+            },
+            tags=["web", "search", "internet"],
+            blocking=True,
+            cost_estimate="low"
+        )
+        self.tools[web_entry.tool_name] = web_entry
+        self.local_tool_instances[web_entry.tool_name] = web_tool  # 👈 注册实例
+        print(f"[ToolIndex] Local tool registered: {web_entry.tool_name}")
+    
+    # 👇 新增：获取本地工具实例
+    def get_local_tool(self, tool_name: str):
+        """获取本地工具实例
+        
+        Args:
+            tool_name: 工具名称
+            
+        Returns:
+            工具实例或 None
+        """
+        return self.local_tool_instances.get(tool_name)
     
     async def sync_from_servers(self, connections: Dict) -> None:
         """从所有连接的 MCP Server 同步工具列表

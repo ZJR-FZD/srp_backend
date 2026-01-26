@@ -9,11 +9,11 @@ from dataclasses import dataclass, field
 
 class TaskType(Enum):
     """任务类型枚举"""
-    PATROL = "patrol"                # 周期性巡逻任务
     MCP_CALL = "mcp_call"           # MCP工具调用任务
     USER_COMMAND = "user_command"    # 用户指令任务
     ACTION_CHAIN = "action_chain"    # Action链式调用
     DISPATCHER = "dispatcher"        # TaskDispatcher任务
+    CONVERSATION = "conversation"    # 对话任务
 
 
 class TaskStatus(Enum):

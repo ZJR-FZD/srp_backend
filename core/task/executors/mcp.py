@@ -114,12 +114,32 @@ class McpExecutor(BaseTaskExecutor):
             # 步骤2：检查计划是否已完成
             if self._is_plan_completed(task.plan):
                 self._log(task, "All plan steps completed, task finished")
+                
+                # 提取所有步骤的执行结果
+                step_results = []
+                final_step_result = None
+                
+                for step in task.plan.steps:
+                    if step.execution_result:
+                        step_results.append({
+                            "description": step.description,
+                            "status": step.status.value,
+                            "result": step.execution_result
+                        })
+                        if step.status == PlanStepStatus.COMPLETED:
+                            final_step_result = step.execution_result
+                
+                # 构建最终结果
                 task.result = {
                     "success": True,
                     "plan_completed": True,
                     "total_steps": len(task.plan.steps),
-                    "revision_count": task.plan.revision_count
+                    "revision_count": task.plan.revision_count,
+                    "step_results": step_results,
+                    "final_result": final_step_result,
+                    "result": final_step_result.get("result") if final_step_result and isinstance(final_step_result, dict) else final_step_result
                 }
+                
                 task.transition_to(TaskStatus.COMPLETED, "Plan completed successfully")
                 return
             
@@ -228,6 +248,17 @@ class McpExecutor(BaseTaskExecutor):
                 
                 # 步骤7：移动到下一步骤
                 task.plan.advance_step()
+                
+                # 👇 新增：设置中间结果（即使还没完成全部计划）
+                task.result = {
+                    "success": True,
+                    "plan_completed": False,
+                    "current_step": task.plan.current_step_index,
+                    "total_steps": len(task.plan.steps),
+                    "latest_result": tool_result,  # 最新的工具执行结果
+                    "result": tool_result.get("result")  # 方便访问
+                }
+                
                 task.transition_to(TaskStatus.COMPLETED, f"Step {task.plan.current_step_index} completed")
                 
                 # 创建后续任务
@@ -466,7 +497,11 @@ class McpExecutor(BaseTaskExecutor):
         Returns:
             Dict[str, Any]: 执行结果
         """
-        # 获取目标连接
+        # 👇 新增：判断是否为本地工具
+        if decision.server_id and decision.server_id.startswith("local-"):
+            return await self._execute_local_tool(task, decision)
+        
+        # 原有逻辑：远程 MCP 工具
         connection = self.connections.get(decision.server_id)
         if not connection:
             return {"success": False, "error": f"Connection {decision.server_id} not found"}
@@ -483,6 +518,55 @@ class McpExecutor(BaseTaskExecutor):
             self._log(task, f"Tool call failed: {result.get('error')}", "ERROR")
         
         return result
+
+    # 👇 新增：本地工具执行方法
+    async def _execute_local_tool(self, task: UnifiedTask, decision) -> Dict[str, Any]:
+        """执行本地工具
+        
+        Args:
+            task: 任务对象
+            decision: 路由决策
+            
+        Returns:
+            Dict[str, Any]: 执行结果
+        """
+        tool_name = decision.tool
+        arguments = decision.arguments
+        
+        self._log(task, f"Calling local tool {tool_name}")
+        
+        # 从 router.tool_index 获取本地工具实例
+        tool_instance = None
+        if hasattr(self.router, 'tool_index'):
+            tool_instance = self.router.tool_index.get_local_tool(tool_name)
+        
+        if not tool_instance:
+            return {
+                "success": False,
+                "error": f"Local tool {tool_name} not found in tool index"
+            }
+        
+        try:
+            # 调用工具的 __call__ 方法
+            result = await tool_instance(**arguments)
+            
+            self._log(task, f"Local tool call succeeded")
+            
+            # 规范化返回格式（本地工具返回的是原始数据，需要包装成标准格式）
+            return {
+                "success": True,
+                "result": result,
+                "content": result  # 兼容不同的字段名
+            }
+            
+        except Exception as e:
+            error_msg = f"Local tool execution failed: {str(e)}"
+            self._log(task, error_msg, "ERROR")
+            
+            return {
+                "success": False,
+                "error": error_msg
+            }
     
     def _record_history(self, task: UnifiedTask, decision, result: Dict[str, Any], current_step: int) -> None:
         """记录执行历史"""

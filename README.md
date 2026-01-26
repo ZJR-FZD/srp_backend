@@ -1,57 +1,94 @@
-# Robot Agent
 
-本项目是机器人的Agent，这是 [PRD](https://k1ntis7zj04.feishu.cn/docx/GKw1dr5bHoqx8KxAAMzcmBMBnDc?from=from_copylink) 链接
+# 前提
+安装整个项目的依赖：uv sync --no-install-project
+填写 .env 和 core\intelligent-qa-system\.env 中的 api-key
 
-## 启动项目
-1. 安装 [uv]()
-2. 使用`uv run main.py`启动项目
+# 1. 启动 RAG 服务器
+找到 robot-agent-main\core\intelligent-qa-system 下面的rag工具说明.md，照着文档部署启动服务器
+需要定位到该目录下，然后conda安装环境并激活，例如
+(intelligent-qa) E:\srp\robot-agent-main\core\intelligent-qa-system>uvicorn rag_http_api:app --host 127.0.0.1 --port 9000 --reload
 
-## 运行测试
+# 2. 启动 WebSocket 服务器
+（可以先后端测试一下）uv run --no-project python scripts/run_qa_bot.py
 
-本项目使用 pytest 进行单元测试，可以使用下面的命令运行所有单测:
-```bash
-uv run pytest
-```
-如果需要更详细的信息，可以增加 -v 参数:
-```bash
-uv run pytest -v
-```
-如果只需要运行特定测试，可以使用下面的命令（自行替换文件名和测试函数名）:
-```bash
-uv run pytest test/test_camera.py::test_camera_initialization -s
-```
-如果需要运行集成测试，可以使用下面的命令:
-```bash
-# 先设置环境变量
-export RUN_INTEGRATION=1
-# 然后运行测试
-uv run pytest test/test_camera_integration.py -v -s
+（前端连接好接口之后）
+uv run --no-project python api/websocket_server.py
 ```
 
-## Todo
+前端看到：
+```
+🦊 数字人对话 WebSocket 服务器
+====================================
+启动中...
 
-- 机器人本地能力
-    - [x] 语音能力 SpeakAction
-    - [x] 告警能力 AlertAction（不直接用 AI 决策调用 mcp 接口是为了摔倒检测等功能的可靠性）
-    - [x] 视觉能力 WatchAction
-    - [ ] 巡逻能力
-- Agent 任务管理器
-    - [x] 任务循环
-    - [x] 任务决策
-    - [x] 支持多轮任务
-- MCP 控制模块
-    - [x] MCP 连接管理
-    - [x] MCP 工具管理、缓存处理
-    - [x] MCP 调用参数生成
-- [ ] 引入[A2A protocol](https://github.com/a2aproject/A2A)辅助智能体通信
-- [ ] 日志管理
+🚀 初始化数字人对话系统...
+✅ 系统初始化完成，等待前端连接...
 
-## 一些碎碎念
+INFO:     Uvicorn running on http://0.0.0.0:8000
 
-1. 友善的24.04镜像好像有奇怪的原因导致apt install没办法认zst格式的包，选型的时候需要注意一下。
-2. 阿里云百炼的Qwen3-tts-flash-realtime接口有点问题，大陆的base_url用不了，要用那个国际的。国际的和大陆的API_Key是不一样的
-3. 友善的这个板子声卡只支持双声道，TTS 生成的单声道音频不能直接播放
+# 前端集成示例（React）
+// 前端 WebSocket 客户端
+const ws = new WebSocket('ws://localhost:8000/ws/conversation');
 
+ws.onopen = () => {
+  console.log('✅ 已连接到数字人服务器');
+};
 
+ws.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  
+  switch (data.type) {
+    case 'connected':
+      console.log('欢迎消息:', data.message);
+      // 显示待机状态
+      setDigitalHumanState('idle');
+      break;
+    
+    case 'state_change':
+      handleStateChange(data.state, data.data);
+      break;
+  }
+};
 
-
+function handleStateChange(state: string, data: any) {
+  switch (state) {
+    case 'waiting_wake':
+      // 数字人进入待机状态（呼吸动画）
+      setAnimation('breathing');
+      setStatusText(`等待唤醒: ${data.message}`);
+      break;
+    
+    case 'awakened':
+      // 唤醒成功（招手动画）
+      setAnimation('waving');
+      setStatusText('我在！');
+      playSound('awakened.mp3');
+      break;
+    
+    case 'conversing':
+      // 对话中（说话动画）
+      setAnimation('talking');
+      if (data.bot_response) {
+        setStatusText(data.bot_response);
+      }
+      break;
+    
+    case 'idle':
+      // 闲置（等待用户说话）
+      setAnimation('listening');
+      setStatusText('在听...');
+      break;
+    
+    case 'goodbye':
+      // 再见（挥手告别）
+      setAnimation('goodbye');
+      setStatusText('再见！');
+      playSound('goodbye.mp3');
+      
+      // 2秒后回到待机
+      setTimeout(() => {
+        setAnimation('breathing');
+      }, 2000);
+      break;
+  }
+}
