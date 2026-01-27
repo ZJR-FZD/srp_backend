@@ -10,7 +10,8 @@ from core.task.executors import (
     McpExecutor,
     UserTaskExecutor,
     ActionChainExecutor,
-    ConversationExecutor
+    ConversationExecutor,
+    ConversationExecutorWithWake,
 )
 
 __all__ = [

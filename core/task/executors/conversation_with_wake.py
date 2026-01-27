@@ -64,6 +64,24 @@ class ConversationExecutorWithWake(BaseTaskExecutor):
         self.running = True
         self.total_conversations = 0
     
+    def _log(self, task: Optional[UnifiedTask], message: str, level: str = "INFO"):
+        """自定义日志方法，避免访问 None 的 history 属性"""
+        # 1. 控制台打印（保留原有日志逻辑）
+        log_prefix = f"[ConversationExecutorWithWake:{level}]"
+        if task:
+            log_prefix += f" Task {task.task_id[:8]}"
+        print(f"{log_prefix} {message}")
+        
+        # 2. 如果 task 不为空，才记录到 task.history（避免 None 报错）
+        if task is not None and hasattr(task, 'history'):
+            task.history.append({
+                "timestamp": time.time(),
+                "event": "log",
+                "level": level,
+                "message": message,
+                "executor": self.__class__.__name__
+            })
+
     async def validate(self, task: UnifiedTask) -> bool:
         return await super().validate(task)
     
@@ -97,14 +115,22 @@ class ConversationExecutorWithWake(BaseTaskExecutor):
     async def _permanent_standby_loop(self, task: UnifiedTask):
         """永久待机循环"""
         self._log(task, "Entering permanent standby mode")
+        print("=" * 60)
+        print("🎧 开始永久待机循环...")
+        print("=" * 60)
         
         while self.running:
             # 1. 等待唤醒
+            print(f"\n💤 等待唤醒词: {', '.join(self.wake_words)}")
+            
             self._set_state(ConversationState.WAITING_WAKE, {
                 "message": f"等待唤醒词: {', '.join(self.wake_words)}"
             })
             
+            print("📢 开始监听语音...")
             awakened = await self._wait_for_wake_word()
+            print(f"✅ 监听结束，唤醒状态: {awakened}")
+            
             if not self.running:
                 break
             
@@ -155,25 +181,34 @@ class ConversationExecutorWithWake(BaseTaskExecutor):
         """等待唤醒词（无限循环）"""
         from core.action.base import ActionContext
         
+        print("\n[_wait_for_wake_word] 进入唤醒词监听...")
+        
         while self.running:
+            print(f"[_wait_for_wake_word] 开始监听，超时 3600s")
+            
             # 监听语音（1小时超时，实际是永久监听）
             context = ActionContext(agent_state=None, input_data=3600.0)
             result = await self.listen_action.execute(context)
+            
+            print(f"[_wait_for_wake_word] 监听结果: success={result.success}")
             
             if not self.running:
                 return False
             
             if result.success:
                 text = result.output.get("text", "").strip().lower()
+                print(f"[_wait_for_wake_word] 识别到语音: {text}")
                 
                 # 检查唤醒词
                 for wake_word in self.wake_words:
                     if wake_word.lower() in text:
-                        self._log(None, f"Wake word detected: {wake_word}")
+                        print(f"[_wait_for_wake_word] ✅ 检测到唤醒词: {wake_word}")
                         return True
                 
                 # 没有唤醒词，继续监听
-                self._log(None, f"Speech without wake word: {text}")
+                print(f"[_wait_for_wake_word] ⚠️  语音中没有唤醒词，继续监听")
+            else:
+                print(f"[_wait_for_wake_word] ⚠️  监听失败或超时")
             
             await asyncio.sleep(0.1)
         
@@ -313,7 +348,7 @@ class ConversationExecutorWithWake(BaseTaskExecutor):
         mcp_task = UnifiedTask(
             task_type=TaskType.MCP_CALL,
             priority=7,
-            timeout=60.0,
+            timeout=3000.0,
             execution_data={
                 "goal": user_intent,
                 "user_intent": user_intent,

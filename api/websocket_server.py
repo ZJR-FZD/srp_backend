@@ -15,7 +15,7 @@ sys.path.insert(0, str(project_root))
 
 from core.agent import RobotAgent
 from core.action import SpeakAction
-from core.task.models import UnifiedTask, TaskType
+from core.task.models import UnifiedTask, TaskType, TaskStatus
 from core.task.executors.conversation_with_wake import ConversationExecutorWithWake
 from core.client.openai_client import OpenAIClient
 from config import OPENAI_API_KEY, OPENAI_BASE_URL, MCP_CONFIG_PATH
@@ -40,6 +40,10 @@ active_connections: Set[WebSocket] = set()
 # ==================== 状态回调 ====================
 def state_callback(state: str, data: Dict):
     """状态变化时推送给所有前端"""
+    print(f"\n🔔 [state_callback] 状态变更: {state}")
+    print(f"   数据: {data}")
+    print(f"   当前连接数: {len(active_connections)}")
+    
     message = {
         "type": "state_change",
         "state": state,
@@ -101,26 +105,56 @@ async def startup():
         wake_words=["你好小狐狸", "小狐狸", "hey fox"],
         idle_timeout=30.0,
         max_idle_rounds=2,
-        state_callback=state_callback  # 👈 传入回调
+        state_callback=state_callback
     )
     
-    # 5. 注册 Executor
+    # ⚠️ 关键：先启动 Agent（会自动注册旧的 ConversationExecutor）
+    agent.start()
+    
+    # 👇 新增：重新注册，覆盖旧的 ConversationExecutor
+    print("[websocket_server] 覆盖旧的 ConversationExecutor，注册 ConversationExecutorWithWake")
     agent.task_scheduler.register_executor(
         TaskType.CONVERSATION,
         conversation_executor
     )
     
-    # 6. 启动 Agent
-    agent.start()
-    
     # 7. 创建永久监听任务
     task = UnifiedTask(
         task_type=TaskType.CONVERSATION,
         priority=10,
-        execution_data={"mode": "loop"}  # 永久循环模式
+        execution_data={"mode": "loop"}  # 👈 注意：不要传 user_text
     )
     
-    await agent.submit_task(task)
+    task_id = await agent.submit_task(task)
+    print(f"✅ 永久监听任务已提交: {task_id}")
+    
+    # 等待一下，确认任务开始执行
+    await asyncio.sleep(1)
+    
+    task_status = await agent.get_task_status(task_id)
+    print(f"📊 任务状态: {task_status}")
+    
+    # 👇 修复：正确获取任务失败原因（移除不存在的 message 属性）
+    if task_status == TaskStatus.FAILED:
+        task_detail = await agent.get_task_detail(task_id)
+        # 修复点1：从 task_detail 的 history 或 result 中获取失败原因
+        fail_reason = "Unknown"
+        if task_detail:
+            # 方式1：从执行历史中找状态转换的失败原因
+            for record in reversed(task_detail.history):
+                if record.get("event") == "status_transition" and record.get("new_status") == "failed":
+                    fail_reason = record.get("reason", "No reason provided")
+                    break
+            # 方式2：如果有result，也可以补充显示
+            if task_detail.result:
+                fail_reason = f"{fail_reason} | Result: {str(task_detail.result)[:200]}"
+        
+        print(f"❌ 任务失败原因: {fail_reason}")
+        print(f"   执行器类型: {type(conversation_executor).__name__}")
+        # 可选：打印完整的任务历史，方便调试
+        print(f"   任务完整历史: {json.dumps(task_detail.history, ensure_ascii=False, indent=2)}")
+    else:
+        print(f"✅ 任务运行正常，执行器: {type(conversation_executor).__name__}")
     
     print("✅ 系统初始化完成，等待前端连接...\n")
 

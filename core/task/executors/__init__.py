@@ -5,11 +5,13 @@ from core.task.executors.mcp import McpExecutor
 from core.task.executors.user_task import UserTaskExecutor
 from core.task.executors.action_chain import ActionChainExecutor
 from core.task.executors.conversation import ConversationExecutor  
+from core.task.executors.conversation_with_wake import ConversationExecutorWithWake
 
 __all__ = [
     "BaseTaskExecutor",
     "McpExecutor",
     "UserTaskExecutor",
     "ActionChainExecutor",
-    "ConversationExecutor"  
+    "ConversationExecutor",
+    "ConversationExecutorWithWake",  
 ]

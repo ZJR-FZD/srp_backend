@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🦊 数字人对话测试</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 600px;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            background: rgba(255,255,255,0.2);
+            font-size: 0.9em;
+            margin-top: 10px;
+        }
+
+        .status.connected {
+            background: #10b981;
+        }
+
+        .status.disconnected {
+            background: #ef4444;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .state-display {
+            background: #f3f4f6;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .state-display h3 {
+            color: #374151;
+            margin-bottom: 10px;
+        }
+
+        .state-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.9em;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+
+        .state-waiting_wake {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .state-awakened {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .state-conversing {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .state-goodbye {
+            background: #fce7f3;
+            color: #9f1239;
+        }
+
+        .log {
+            background: #1f2937;
+            color: #d1d5db;
+            border-radius: 10px;
+            padding: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+            line-height: 1.6;
+        }
+
+        .log-entry {
+            margin-bottom: 8px;
+            padding: 5px;
+            border-left: 3px solid #4b5563;
+            padding-left: 10px;
+        }
+
+        .log-entry.info {
+            border-left-color: #3b82f6;
+        }
+
+        .log-entry.success {
+            border-left-color: #10b981;
+        }
+
+        .log-entry.warning {
+            border-left-color: #f59e0b;
+        }
+
+        .log-entry.error {
+            border-left-color: #ef4444;
+        }
+
+        .timestamp {
+            color: #6b7280;
+            font-size: 0.85em;
+        }
+
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .btn-connect {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-disconnect {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-clear {
+            background: #6b7280;
+            color: white;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .stat-card {
+            background: #f9fafb;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            color: #6b7280;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+
+        .emoji {
+            font-size: 3em;
+            text-align: center;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🦊 数字人对话测试</h1>
+            <div class="status disconnected" id="connectionStatus">
+                ⚫ 未连接
+            </div>
+        </div>
+
+        <div class="content">
+            <!-- 当前状态 -->
+            <div class="state-display">
+                <h3>📡 当前状态</h3>
+                <div class="state-badge state-waiting_wake" id="currentState">
+                    等待连接...
+                </div>
+                <div class="emoji" id="stateEmoji">😴</div>
+            </div>
+
+            <!-- 统计信息 -->
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-value" id="conversationCount">0</div>
+                    <div class="stat-label">唤醒次数</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="messageCount">0</div>
+                    <div class="stat-label">消息数</div>
+                </div>
+            </div>
+
+            <!-- 控制按钮 -->
+            <div class="controls">
+                <button class="btn-connect" id="connectBtn" onclick="connect()">
+                    🔌 连接服务器
+                </button>
+                <button class="btn-disconnect" id="disconnectBtn" onclick="disconnect()" disabled>
+                    ❌ 断开连接
+                </button>
+                <button class="btn-clear" onclick="clearLog()">
+                    🗑️ 清空日志
+                </button>
+            </div>
+
+            <!-- 日志区域 -->
+            <div style="margin-top: 20px;">
+                <h3 style="margin-bottom: 10px; color: #374151;">📋 实时日志</h3>
+                <div class="log" id="logContainer"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let messageCount = 0;
+        let conversationCount = 0;
+
+        const stateConfig = {
+            'waiting_wake': {
+                emoji: '😴',
+                class: 'state-waiting_wake',
+                text: '💤 等待唤醒'
+            },
+            'awakened': {
+                emoji: '👋',
+                class: 'state-awakened',
+                text: '✨ 已唤醒'
+            },
+            'conversing': {
+                emoji: '💬',
+                class: 'state-conversing',
+                text: '💬 对话中'
+            },
+            'idle': {
+                emoji: '⏳',
+                class: 'state-conversing',
+                text: '⏳ 等待输入'
+            },
+            'goodbye': {
+                emoji: '👋',
+                class: 'state-goodbye',
+                text: '👋 再见'
+            }
+        };
+
+        function connect() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                log('已经连接到服务器', 'warning');
+                return;
+            }
+
+            const wsUrl = 'ws://localhost:8000/ws/conversation';
+            log(`正在连接: ${wsUrl}`, 'info');
+
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                log('✅ WebSocket 连接成功！', 'success');
+                updateConnectionStatus(true);
+                document.getElementById('connectBtn').disabled = true;
+                document.getElementById('disconnectBtn').disabled = false;
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                messageCount++;
+                document.getElementById('messageCount').textContent = messageCount;
+
+                handleMessage(data);
+            };
+
+            ws.onerror = (error) => {
+                log('❌ WebSocket 错误', 'error');
+                console.error(error);
+            };
+
+            ws.onclose = () => {
+                log('🔌 WebSocket 连接已关闭', 'warning');
+                updateConnectionStatus(false);
+                document.getElementById('connectBtn').disabled = false;
+                document.getElementById('disconnectBtn').disabled = true;
+            };
+        }
+
+        function disconnect() {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+        }
+
+        function handleMessage(data) {
+            switch (data.type) {
+                case 'connected':
+                    log(`📡 ${data.message}`, 'success');
+                    log(`🎯 唤醒词: ${data.wake_words.join(', ')}`, 'info');
+                    updateState(data.current_state);
+                    break;
+
+                case 'state_change':
+                    const state = data.state;
+                    const stateData = data.data;
+
+                    log(`🔄 状态变更: ${state}`, 'info');
+
+                    if (state === 'awakened') {
+                        conversationCount++;
+                        document.getElementById('conversationCount').textContent = conversationCount;
+                        log(`🎉 第 ${stateData.conversation_id} 次唤醒成功！`, 'success');
+                    }
+
+                    if (state === 'conversing' && stateData.user_input) {
+                        log(`🎤 用户: ${stateData.user_input}`, 'info');
+                        if (stateData.bot_response) {
+                            log(`🤖 助手: ${stateData.bot_response}`, 'info');
+                        }
+                    }
+
+                    if (state === 'goodbye') {
+                        log(`👋 ${stateData.message}`, 'warning');
+                    }
+
+                    updateState(state);
+                    break;
+
+                case 'current_state':
+                    log(`📊 当前状态: ${data.state}, 唤醒次数: ${data.total_conversations}`, 'info');
+                    updateState(data.state);
+                    conversationCount = data.total_conversations;
+                    document.getElementById('conversationCount').textContent = conversationCount;
+                    break;
+
+                case 'pong':
+                    log('🏓 Pong received', 'info');
+                    break;
+
+                default:
+                    log(`📦 未知消息类型: ${data.type}`, 'warning');
+            }
+        }
+
+        function updateState(state) {
+            const config = stateConfig[state] || {
+                emoji: '❓',
+                class: 'state-waiting_wake',
+                text: state
+            };
+
+            const stateElem = document.getElementById('currentState');
+            stateElem.className = `state-badge ${config.class}`;
+            stateElem.textContent = config.text;
+
+            document.getElementById('stateEmoji').textContent = config.emoji;
+        }
+
+        function updateConnectionStatus(connected) {
+            const statusElem = document.getElementById('connectionStatus');
+            if (connected) {
+                statusElem.className = 'status connected';
+                statusElem.textContent = '🟢 已连接';
+            } else {
+                statusElem.className = 'status disconnected';
+                statusElem.textContent = '⚫ 未连接';
+            }
+        }
+
+        function log(message, type = 'info') {
+            const logContainer = document.getElementById('logContainer');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+
+            const time = new Date().toLocaleTimeString('zh-CN', { 
+                hour12: false,
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+
+            entry.innerHTML = `
+                <span class="timestamp">[${time}]</span> ${message}
+            `;
+
+            logContainer.appendChild(entry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('logContainer').innerHTML = '';
+            log('日志已清空', 'info');
+        }
+
+        // 心跳检测（可选）
+        setInterval(() => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'ping' }));
+            }
+        }, 30000);
+
+        // 页面加载完成后的提示
+        window.onload = () => {
+            log('🚀 前端已加载，点击"连接服务器"开始测试', 'info');
+        };
+    </script>
+</body>
+</html>
