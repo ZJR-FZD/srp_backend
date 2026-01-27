@@ -1,0 +1,162 @@
+"""
+构建向量索引脚本
+"""
+import sys
+from pathlib import Path
+
+# 添加项目根目录到路径
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from config.settings import settings
+from src.document_loader.pdf_loader import PDFLoader
+from src.document_loader.docx_loader import DOCXLoader
+from src.document_loader.markdown_loader import MarkdownLoader
+from src.text_processor.splitter import SemanticSplitter
+from src.text_processor.cleaner import TextCleaner
+from src.vector_store.store_manager import VectorStoreManager
+
+
+def load_all_documents():
+    """加载所有文档"""
+    print("\n" + "="*60)
+    print("📚 加载文档")
+    print("="*60)
+    
+    all_documents = []
+    
+    # 加载 PDF
+    pdf_loader = PDFLoader()
+    pdf_dir = settings.PDF_DIR
+    if any(pdf_dir.glob("*.pdf")):
+        print(f"\n📄 加载 PDF 文件...")
+        pdf_docs = pdf_loader.load_directory(str(pdf_dir))
+        all_documents.extend(pdf_docs)
+        print(f"   ✅ PDF: {len(pdf_docs)} 个页面")
+    
+    # 加载 Word
+    docx_loader = DOCXLoader()
+    docx_dir = settings.DOCX_DIR
+    if any(docx_dir.glob("*.docx")) or any(docx_dir.glob("*.doc")):
+        print(f"\n📄 加载 Word 文件...")
+        docx_docs = docx_loader.load_directory(str(docx_dir))
+        all_documents.extend(docx_docs)
+        print(f"   ✅ Word: {len(docx_docs)} 个文档")
+    
+    # 加载 Markdown
+    md_loader = MarkdownLoader()
+    md_dir = settings.MARKDOWN_DIR
+    if any(md_dir.glob("*.md")) or any(md_dir.glob("*.markdown")):
+        print(f"\n📄 加载 Markdown 文件...")
+        md_docs = md_loader.load_directory(str(md_dir))
+        all_documents.extend(md_docs)
+        print(f"   ✅ Markdown: {len(md_docs)} 个文档")
+    
+    print(f"\n{'='*60}")
+    print(f"📊 总计加载: {len(all_documents)} 个文档")
+    print(f"{'='*60}")
+    
+    return all_documents
+
+
+def process_documents(documents):
+    """处理文档：清洗和切分"""
+    print("\n" + "="*60)
+    print("🔧 处理文档")
+    print("="*60)
+    
+    # 文本清洗
+    print(f"\n🧹 清洗文本...")
+    cleaner = TextCleaner(
+        remove_urls=True,
+        remove_emails=True,
+        remove_extra_whitespace=True,
+        remove_special_chars=False,
+        lowercase=False
+    )
+    cleaned_docs = cleaner.clean_documents(documents)
+    print(f"   ✅ 清洗完成: {len(cleaned_docs)} 个文档")
+    
+    # 文本切分
+    print(f"\n✂️  切分文本...")
+    print(f"   配置: chunk_size={settings.CHUNK_SIZE}, overlap={settings.CHUNK_OVERLAP}")
+    splitter = SemanticSplitter(
+        chunk_size=settings.CHUNK_SIZE,
+        chunk_overlap=settings.CHUNK_OVERLAP
+    )
+    chunks = splitter.split_documents(cleaned_docs)
+    print(f"   ✅ 切分完成: {len(chunks)} 个文本块")
+    for i, chunk in enumerate(chunks[:3], 1):
+        print(f"\n   示例块 {i}:")
+        print(f"   --------------------")
+        print(f"   {chunk.content[:200]}{'...' if len(chunk.content) > 200 else ''}")
+        print(f"   --------------------")
+    
+    # 统计信息
+    avg_length = sum(len(chunk.content) for chunk in chunks) / len(chunks) if chunks else 0
+    print(f"\n📊 统计信息:")
+    print(f"   - 原始文档: {len(documents)}")
+    print(f"   - 清洗后: {len(cleaned_docs)}")
+    print(f"   - 切分后: {len(chunks)}")
+    print(f"   - 平均块大小: {avg_length:.0f} 字符")
+    
+    return chunks
+
+
+def build_vector_index(documents, embedding_model=None):
+    """构建向量索引"""
+    # 创建向量存储管理器
+    manager = VectorStoreManager(embedding_model=embedding_model)
+    
+    # 构建索引
+    store = manager.build_index(
+        documents=documents,
+        batch_size=32,
+        save=True
+    )
+    
+    return manager
+
+def main():
+    """主函数"""
+    print("\n" + "🚀 "*30)
+    print("向量索引构建工具")
+    print("🚀 "*30)
+    
+    # 显示配置
+    settings.display()
+    
+    # 1. 加载文档
+    documents = load_all_documents()
+    
+    if not documents:
+        print("\n⚠️  警告: 没有找到任何文档！")
+        print("   请在以下目录添加文档:")
+        print(f"   - PDF: {settings.PDF_DIR}")
+        print(f"   - Word: {settings.DOCX_DIR}")
+        print(f"   - Markdown: {settings.MARKDOWN_DIR}")
+        return
+    
+    # 2. 处理文档
+    chunks = process_documents(documents)
+    
+    # 3. 构建索引
+    manager = build_vector_index(
+        chunks,
+        embedding_model=settings.EMBEDDING_MODEL
+    )
+    
+    # 4. 显示统计
+    stats = manager.get_stats()
+    print("\n" + "="*60)
+    print("📊 索引统计")
+    print("="*60)
+    for key, value in stats.items():
+        print(f"   {key}: {value}")
+    
+    print("\n" + "="*60)
+    print("✅ 索引构建完成！")
+    print("="*60)
+    print(f"\n💾 索引已保存到: {settings.VECTOR_STORE_DIR}")
+
+if __name__ == "__main__":
+    main()
