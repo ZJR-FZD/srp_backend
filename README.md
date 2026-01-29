@@ -54,6 +54,8 @@ INFO:     Uvicorn running on http://0.0.0.0:8000
 ###### 阶段3：简单前端测试
 浏览器打开 api/test_frontend.html
 
+**先连接服务器，然后点击启动监听，再说话“你好，小狐狸”即可唤醒对话**
+
 #### 三、前端集成示例（React 版）
 ```tsx
 // WebSocket 客户端封装（React 组件示例）

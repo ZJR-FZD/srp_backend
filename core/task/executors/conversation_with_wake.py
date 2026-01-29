@@ -55,14 +55,74 @@ class ConversationExecutorWithWake(BaseTaskExecutor):
         self.conversation_history = []
         self.max_history_length = 10
         
+        # 💬 新增：消息列表（用于前端字幕显示）
+        self.messages = []  # 格式: [{"role": "user|assistant", "content": "...", "timestamp": ...}]
+        self.max_messages = 50
+        
         # 监听器
         self.listen_action = ListenActionVAD()
         self.listen_action.initialize(VADPresets.STANDARD)
         
-        # 状态
+        # 状态控制
         self.current_state = ConversationState.WAITING_WAKE
-        self.running = True
+        self.running = False  # 👈 改为 False，由前端启动
+        self.listening_active = False  # 👈 新增：当前是否在监听
         self.total_conversations = 0
+    
+    def _add_message(self, role: str, content: str):
+        """添加消息到列表（供前端显示）"""
+        message = {
+            "role": role,
+            "content": content,
+            "timestamp": time.time()
+        }
+        self.messages.append(message)
+        
+        # 限制消息数量
+        if len(self.messages) > self.max_messages:
+            self.messages = self.messages[-self.max_messages:]
+        
+        # 通过状态回调推送给前端
+        if self.state_callback:
+            self.state_callback("message", {
+                "message": message,
+                "total_messages": len(self.messages)
+            })
+    
+    def get_messages(self, limit: int = None) -> list:
+        """获取消息列表"""
+        if limit:
+            return self.messages[-limit:]
+        return self.messages
+    
+    def clear_messages(self):
+        """清空消息列表"""
+        self.messages.clear()
+    
+    def start_listening(self):
+        """启动监听（由前端调用）"""
+        if not self.running:
+            self.running = True
+            self.listening_active = True
+            print("🎤 监听已启动")
+            
+            # 通知前端
+            if self.state_callback:
+                self.state_callback("listening_started", {
+                    "message": "监听已启动"
+                })
+    
+    def stop_listening(self):
+        """停止监听（由前端调用）"""
+        self.running = False
+        self.listening_active = False
+        print("🛑 监听已停止")
+        
+        # 通知前端
+        if self.state_callback:
+            self.state_callback("listening_stopped", {
+                "message": "监听已停止"
+            })
     
     def _log(self, task: Optional[UnifiedTask], message: str, level: str = "INFO"):
         """自定义日志方法，避免访问 None 的 history 属性"""
@@ -113,11 +173,18 @@ class ConversationExecutorWithWake(BaseTaskExecutor):
             await self.handle_error(task, e)
     
     async def _permanent_standby_loop(self, task: UnifiedTask):
-        """永久待机循环"""
-        self._log(task, "Entering permanent standby mode")
+        """永久待机循环 - 真正的永久监听，直到手动停止"""
+        self._log(task, "Entering permanent standby mode (waiting for start signal)")
         print("=" * 60)
-        print("🎧 开始永久待机循环...")
+        print("🎧 等待启动监听...")
+        print("💡 请在前端点击【启动监听】按钮开始")
         print("=" * 60)
+        
+        # 等待前端启动信号
+        while not self.running:
+            await asyncio.sleep(0.5)
+        
+        print("\n✅ 监听已启动！开始永久待机循环...")
         
         while self.running:
             # 1. 等待唤醒
@@ -147,7 +214,9 @@ class ConversationExecutorWithWake(BaseTaskExecutor):
             })
             
             # 播报欢迎语
-            await self._speak("我在，请和我聊天吧！")
+            welcome_msg = "我在，请和我聊天吧！"
+            self._add_message("assistant", welcome_msg)
+            await self._speak(welcome_msg)
             
             # 3. 进入对话循环
             await self._conversation_loop(task)
@@ -178,16 +247,16 @@ class ConversationExecutorWithWake(BaseTaskExecutor):
         })
     
     async def _wait_for_wake_word(self) -> bool:
-        """等待唤醒词（无限循环）"""
+        """等待唤醒词 - 真正的永久监听，直到检测到唤醒词或被停止"""
         from core.action.base import ActionContext
         
         print("\n[_wait_for_wake_word] 进入唤醒词监听...")
         
         while self.running:
-            print(f"[_wait_for_wake_word] 开始监听，超时 3600s")
+            print(f"[_wait_for_wake_word] 开始监听（无限循环，直到检测到唤醒词或手动停止）")
             
-            # 监听语音（1小时超时，实际是永久监听）
-            context = ActionContext(agent_state=None, input_data=3600.0)
+            # 监听语音 - 使用较长超时（60秒），但会循环重试
+            context = ActionContext(agent_state=None, input_data=60.0)
             result = await self.listen_action.execute(context)
             
             print(f"[_wait_for_wake_word] 监听结果: success={result.success}")
@@ -208,7 +277,7 @@ class ConversationExecutorWithWake(BaseTaskExecutor):
                 # 没有唤醒词，继续监听
                 print(f"[_wait_for_wake_word] ⚠️  语音中没有唤醒词，继续监听")
             else:
-                print(f"[_wait_for_wake_word] ⚠️  监听失败或超时")
+                print(f"[_wait_for_wake_word] ⚠️  监听超时或失败，继续下一轮")
             
             await asyncio.sleep(0.1)
         
@@ -223,23 +292,24 @@ class ConversationExecutorWithWake(BaseTaskExecutor):
         max_rounds = 20
         
         self._set_state(ConversationState.CONVERSING, {
-            "message": "对话中"
+            "conversation_id": self.total_conversations
         })
         
-        while round_count < max_rounds and self.running:
-            self._log(task, f"Conversation round {round_count + 1}")
+        while self.running and round_count < max_rounds:
+            print(f"\n--- 第 {round_count + 1} 轮对话 ---")
             
             # 监听用户输入
+            print(f"🎤 监听用户输入（超时 {self.idle_timeout}s）...")
+            
             context = ActionContext(agent_state=None, input_data=self.idle_timeout)
             result = await self.listen_action.execute(context)
             
             if not self.running:
                 break
             
-            # 无语音
-            if not result.success or not result.output.get("text"):
+            if not result.success:
                 idle_count += 1
-                self._log(task, f"No speech ({idle_count}/{self.max_idle_rounds})")
+                print(f"⏱️  无语音输入 ({idle_count}/{self.max_idle_rounds})")
                 
                 self._set_state(ConversationState.IDLE, {
                     "idle_count": idle_count,
@@ -247,26 +317,41 @@ class ConversationExecutorWithWake(BaseTaskExecutor):
                 })
                 
                 if idle_count >= self.max_idle_rounds:
-                    await self._speak("好的，有需要随时叫我！")
+                    print("⏱️  超时次数过多，结束对话")
+                    goodbye_msg = "好的，我先休息了，有需要再叫我"
+                    self._add_message("assistant", goodbye_msg)
+                    await self._speak(goodbye_msg)
                     break
                 
-                await self._speak("还在吗？")
                 continue
             
+            # 重置闲置计数
             idle_count = 0
-            user_text = result.output.get("text").strip()
             
-            self._log(task, f"User: {user_text}")
+            # 获取用户输入
+            user_text = result.output.get("text", "").strip()
+            print(f"👤 用户: {user_text}")
+            
+            if not user_text:
+                continue
+            
+            # 添加到消息列表
+            self._add_message("user", user_text)
             
             # 检查再见
             if self._is_goodbye(user_text):
-                self._log(task, "Goodbye detected")
-                self._set_state("goodbye", {"message": "用户说再见"})
-                await self._speak("好的，再见！有需要随时叫我！")
+                print("👋 检测到再见关键词")
+                goodbye_msg = "再见，下次见！"
+                self._add_message("assistant", goodbye_msg)
+                await self._speak(goodbye_msg)
                 break
             
-            # 意图分析 + MCP 工具调用
+            # 处理输入
             response_text = await self._handle_user_input(user_text)
+            print(f"🤖 助手: {response_text}")
+            
+            # 添加到消息列表
+            self._add_message("assistant", response_text)
             
             # 播报
             self._set_state(ConversationState.CONVERSING, {
@@ -441,13 +526,13 @@ class ConversationExecutorWithWake(BaseTaskExecutor):
         
         system_prompt = f"""你是一个友好的智能助手。
 
-    用户问题："{user_text}"
+用户问题："{user_text}"
 
-    工具返回的信息：
-    {tool_output}
+工具返回的信息：
+{tool_output}
 
-    请用简洁、自然、口语化的中文回复用户（2-3句话，总结关键信息）。
-    如果是新闻或搜索结果，简要概括前几条即可。"""
+请用简洁、自然、口语化的中文回复用户（2-3句话，总结关键信息）。
+如果是新闻或搜索结果，简要概括前几条即可。"""
         
         messages = [
             {"role": "system", "content": system_prompt},
@@ -488,8 +573,10 @@ class ConversationExecutorWithWake(BaseTaskExecutor):
     def stop(self):
         """停止监听"""
         self.running = False
+        self.listening_active = False
     
     def cleanup(self):
         """清理资源"""
         self.listen_action.cleanup()
         self.conversation_history.clear()
+        self.messages.clear()

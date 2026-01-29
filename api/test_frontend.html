@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🦊 数字人对话测试</title>
+    <title>🦊 数字人对话系统</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
         * {
             margin: 0;
@@ -11,105 +14,450 @@
             box-sizing: border-box;
         }
 
+        :root {
+            --primary: #00f0ff;
+            --primary-dark: #00a8b8;
+            --accent: #ff00ff;
+            --bg-dark: #0a0e1a;
+            --bg-darker: #050810;
+            --card-bg: rgba(20, 25, 45, 0.8);
+            --text-primary: #ffffff;
+            --text-secondary: #a0aec0;
+            --success: #10ff85;
+            --warning: #ffaa00;
+            --error: #ff3366;
+        }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Noto Sans SC', sans-serif;
+            background: var(--bg-darker);
+            color: var(--text-primary);
             min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
+            overflow-x: hidden;
+        }
+
+        /* 动态网格背景 */
+        .grid-background {
+            position: fixed;
+            inset: 0;
+            background: 
+                linear-gradient(90deg, rgba(0, 240, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(180deg, rgba(0, 240, 255, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* 渐变光效 */
+        .glow-orb {
+            position: fixed;
+            width: 600px;
+            height: 600px;
+            border-radius: 50%;
+            filter: blur(100px);
+            opacity: 0.15;
+            pointer-events: none;
+            animation: float 20s ease-in-out infinite;
+        }
+
+        .glow-orb-1 {
+            background: var(--primary);
+            top: -200px;
+            left: -200px;
+        }
+
+        .glow-orb-2 {
+            background: var(--accent);
+            bottom: -200px;
+            right: -200px;
+            animation-delay: -10s;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(100px, -100px) scale(1.1); }
+            66% { transform: translate(-100px, 100px) scale(0.9); }
         }
 
         .container {
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            max-width: 600px;
-            width: 100%;
-            overflow: hidden;
+            position: relative;
+            z-index: 1;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 30px;
+            min-height: 100vh;
         }
 
+        /* 头部 */
         .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 30px;
+            grid-column: 1 / -1;
             text-align: center;
-        }
-
-        .header h1 {
-            font-size: 2em;
-            margin-bottom: 10px;
-        }
-
-        .status {
-            display: inline-block;
-            padding: 8px 16px;
-            border-radius: 20px;
-            background: rgba(255,255,255,0.2);
-            font-size: 0.9em;
-            margin-top: 10px;
-        }
-
-        .status.connected {
-            background: #10b981;
-        }
-
-        .status.disconnected {
-            background: #ef4444;
-        }
-
-        .content {
-            padding: 30px;
-        }
-
-        .state-display {
-            background: #f3f4f6;
-            border-radius: 10px;
-            padding: 20px;
             margin-bottom: 20px;
         }
 
-        .state-display h3 {
-            color: #374151;
+        .header h1 {
+            font-family: 'Orbitron', monospace;
+            font-size: 3em;
+            font-weight: 900;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
             margin-bottom: 10px;
+            animation: glow-pulse 3s ease-in-out infinite;
         }
 
-        .state-badge {
-            display: inline-block;
-            padding: 6px 12px;
-            border-radius: 6px;
-            font-size: 0.9em;
-            font-weight: bold;
-            margin-top: 5px;
+        @keyframes glow-pulse {
+            0%, 100% { filter: drop-shadow(0 0 20px rgba(0, 240, 255, 0.5)); }
+            50% { filter: drop-shadow(0 0 40px rgba(0, 240, 255, 0.8)); }
         }
 
-        .state-waiting_wake {
-            background: #dbeafe;
-            color: #1e40af;
-        }
-
-        .state-awakened {
-            background: #d1fae5;
-            color: #065f46;
-        }
-
-        .state-conversing {
-            background: #fef3c7;
-            color: #92400e;
-        }
-
-        .state-goodbye {
-            background: #fce7f3;
-            color: #9f1239;
-        }
-
-        .log {
-            background: #1f2937;
-            color: #d1d5db;
-            border-radius: 10px;
+        .status-bar {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 30px;
             padding: 20px;
-            max-height: 400px;
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 240, 255, 0.2);
+            border-radius: 15px;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.1em;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--text-secondary);
+            box-shadow: 0 0 20px currentColor;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .status-dot.active {
+            background: var(--success);
+        }
+
+        .status-dot.listening {
+            background: var(--primary);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.8); }
+        }
+
+        /* 主控制面板 */
+        .main-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 240, 255, 0.2);
+            border-radius: 20px;
+            padding: 25px;
+            transition: all 0.3s;
+        }
+
+        .card:hover {
+            border-color: rgba(0, 240, 255, 0.4);
+            box-shadow: 0 10px 40px rgba(0, 240, 255, 0.1);
+        }
+
+        .card-title {
+            font-family: 'Orbitron', monospace;
+            font-size: 1.3em;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* 控制按钮 */
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .btn {
+            padding: 18px 30px;
+            border: 2px solid;
+            border-radius: 12px;
+            font-size: 1.1em;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-family: 'Orbitron', monospace;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        .btn:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        .btn span {
+            position: relative;
+            z-index: 1;
+        }
+
+        .btn-start {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            border-color: var(--primary);
+            color: var(--bg-dark);
+            grid-column: 1 / -1;
+        }
+
+        .btn-start:hover {
+            box-shadow: 0 10px 40px rgba(0, 240, 255, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .btn-start:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-stop {
+            background: linear-gradient(135deg, var(--error), #cc2850);
+            border-color: var(--error);
+            color: white;
+            grid-column: 1 / -1;
+        }
+
+        .btn-stop:hover {
+            box-shadow: 0 10px 40px rgba(255, 51, 102, 0.4);
+        }
+
+        .btn-clear {
+            background: transparent;
+            border-color: var(--text-secondary);
+            color: var(--text-secondary);
+        }
+
+        .btn-clear:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        /* 统计卡片 */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+        }
+
+        .stat-card {
+            background: rgba(0, 240, 255, 0.05);
+            border: 1px solid rgba(0, 240, 255, 0.2);
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s;
+        }
+
+        .stat-card:hover {
+            background: rgba(0, 240, 255, 0.1);
+            transform: translateY(-5px);
+        }
+
+        .stat-value {
+            font-family: 'Orbitron', monospace;
+            font-size: 2.5em;
+            font-weight: 900;
+            background: linear-gradient(135deg, var(--primary), white);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            color: var(--text-secondary);
+            margin-top: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* 消息字幕区域 */
+        .messages-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .messages-container {
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 240, 255, 0.2);
+            border-radius: 20px;
+            padding: 25px;
+            height: calc(100vh - 320px);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .messages-scroll {
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 10px;
+            margin-top: 15px;
+        }
+
+        .messages-scroll::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .messages-scroll::-webkit-scrollbar-track {
+            background: rgba(0, 240, 255, 0.05);
+            border-radius: 10px;
+        }
+
+        .messages-scroll::-webkit-scrollbar-thumb {
+            background: rgba(0, 240, 255, 0.3);
+            border-radius: 10px;
+        }
+
+        .messages-scroll::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 240, 255, 0.5);
+        }
+
+        .message {
+            margin-bottom: 20px;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        .message-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2em;
+        }
+
+        .message.user .message-avatar {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+        }
+
+        .message.assistant .message-avatar {
+            background: linear-gradient(135deg, var(--accent), #cc00cc);
+        }
+
+        .message-role {
+            font-weight: 700;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .message.user .message-role {
+            color: var(--primary);
+        }
+
+        .message.assistant .message-role {
+            color: var(--accent);
+        }
+
+        .message-time {
+            margin-left: auto;
+            font-size: 0.8em;
+            color: var(--text-secondary);
+        }
+
+        .message-content {
+            background: rgba(255, 255, 255, 0.05);
+            border-left: 3px solid;
+            padding: 15px;
+            border-radius: 0 10px 10px 0;
+            font-size: 1em;
+            line-height: 1.6;
+        }
+
+        .message.user .message-content {
+            border-color: var(--primary);
+        }
+
+        .message.assistant .message-content {
+            border-color: var(--accent);
+        }
+
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--text-secondary);
+            text-align: center;
+        }
+
+        .empty-state-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+            opacity: 0.3;
+        }
+
+        /* 日志区域 */
+        .log {
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(0, 240, 255, 0.2);
+            border-radius: 15px;
+            padding: 20px;
+            max-height: 300px;
             overflow-y: auto;
             font-family: 'Courier New', monospace;
             font-size: 0.85em;
@@ -119,149 +467,134 @@
         .log-entry {
             margin-bottom: 8px;
             padding: 5px;
-            border-left: 3px solid #4b5563;
+            border-left: 3px solid;
             padding-left: 10px;
+            animation: fadeIn 0.3s;
         }
 
-        .log-entry.info {
-            border-left-color: #3b82f6;
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
 
-        .log-entry.success {
-            border-left-color: #10b981;
-        }
-
-        .log-entry.warning {
-            border-left-color: #f59e0b;
-        }
-
-        .log-entry.error {
-            border-left-color: #ef4444;
-        }
+        .log-entry.info { border-left-color: var(--primary); }
+        .log-entry.success { border-left-color: var(--success); }
+        .log-entry.warning { border-left-color: var(--warning); }
+        .log-entry.error { border-left-color: var(--error); }
 
         .timestamp {
-            color: #6b7280;
-            font-size: 0.85em;
-        }
-
-        .controls {
-            margin-top: 20px;
-            display: flex;
-            gap: 10px;
-        }
-
-        button {
-            flex: 1;
-            padding: 12px 20px;
-            border: none;
-            border-radius: 8px;
-            font-size: 1em;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        }
-
-        .btn-connect {
-            background: #10b981;
-            color: white;
-        }
-
-        .btn-disconnect {
-            background: #ef4444;
-            color: white;
-        }
-
-        .btn-clear {
-            background: #6b7280;
-            color: white;
-        }
-
-        .stats {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-top: 20px;
-        }
-
-        .stat-card {
-            background: #f9fafb;
-            border-radius: 8px;
-            padding: 15px;
-            text-align: center;
-        }
-
-        .stat-value {
-            font-size: 2em;
-            font-weight: bold;
-            color: #667eea;
-        }
-
-        .stat-label {
-            color: #6b7280;
+            color: var(--text-secondary);
             font-size: 0.9em;
-            margin-top: 5px;
         }
 
-        .emoji {
-            font-size: 3em;
-            text-align: center;
-            margin: 20px 0;
+        /* 响应式 */
+        @media (max-width: 1200px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+
+            .messages-container {
+                height: 500px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2em;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .controls {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
 <body>
+    <!-- 背景效果 -->
+    <div class="grid-background"></div>
+    <div class="glow-orb glow-orb-1"></div>
+    <div class="glow-orb glow-orb-2"></div>
+
     <div class="container">
+        <!-- 头部 -->
         <div class="header">
-            <h1>🦊 数字人对话测试</h1>
-            <div class="status disconnected" id="connectionStatus">
-                ⚫ 未连接
+            <h1>🦊 Digital Avatar</h1>
+            <div class="status-bar">
+                <div class="status-indicator">
+                    <div class="status-dot" id="connectionDot"></div>
+                    <span id="connectionText">未连接</span>
+                </div>
+                <div class="status-indicator">
+                    <div class="status-dot" id="listeningDot"></div>
+                    <span id="listeningText">未监听</span>
+                </div>
+                <div class="status-indicator">
+                    <span id="stateText">等待连接...</span>
+                </div>
             </div>
         </div>
 
-        <div class="content">
-            <!-- 当前状态 -->
-            <div class="state-display">
-                <h3>📡 当前状态</h3>
-                <div class="state-badge state-waiting_wake" id="currentState">
-                    等待连接...
+        <!-- 主控制面板 -->
+        <div class="main-panel">
+            <!-- 控制按钮 -->
+            <div class="card">
+                <div class="card-title">⚡ 控制中心</div>
+                <div class="controls">
+                    <button class="btn btn-start" id="startBtn" onclick="startListening()">
+                        <span>🎤 启动监听</span>
+                    </button>
+                    <button class="btn btn-stop" id="stopBtn" onclick="stopListening()" disabled>
+                        <span>🛑 停止监听</span>
+                    </button>
+                    <button class="btn btn-clear" onclick="connectWS()">
+                        <span>🔌 连接服务器</span>
+                    </button>
+                    <button class="btn btn-clear" onclick="clearMessages()">
+                        <span>🗑️ 清空消息</span>
+                    </button>
                 </div>
-                <div class="emoji" id="stateEmoji">😴</div>
             </div>
 
             <!-- 统计信息 -->
-            <div class="stats">
-                <div class="stat-card">
-                    <div class="stat-value" id="conversationCount">0</div>
-                    <div class="stat-label">唤醒次数</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="messageCount">0</div>
-                    <div class="stat-label">消息数</div>
+            <div class="card">
+                <div class="card-title">📊 统计数据</div>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value" id="conversationCount">0</div>
+                        <div class="stat-label">唤醒次数</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="messageCount">0</div>
+                        <div class="stat-label">消息数</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="connectionCount">0</div>
+                        <div class="stat-label">连接数</div>
+                    </div>
                 </div>
             </div>
 
-            <!-- 控制按钮 -->
-            <div class="controls">
-                <button class="btn-connect" id="connectBtn" onclick="connect()">
-                    🔌 连接服务器
-                </button>
-                <button class="btn-disconnect" id="disconnectBtn" onclick="disconnect()" disabled>
-                    ❌ 断开连接
-                </button>
-                <button class="btn-clear" onclick="clearLog()">
-                    🗑️ 清空日志
-                </button>
-            </div>
-
-            <!-- 日志区域 -->
-            <div style="margin-top: 20px;">
-                <h3 style="margin-bottom: 10px; color: #374151;">📋 实时日志</h3>
+            <!-- 日志 -->
+            <div class="card">
+                <div class="card-title">📋 系统日志</div>
                 <div class="log" id="logContainer"></div>
+            </div>
+        </div>
+
+        <!-- 消息字幕面板 -->
+        <div class="messages-panel">
+            <div class="messages-container">
+                <div class="card-title">💬 对话字幕</div>
+                <div class="messages-scroll" id="messagesContainer">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">😴</div>
+                        <div>等待对话开始...</div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -270,36 +603,11 @@
         let ws = null;
         let messageCount = 0;
         let conversationCount = 0;
+        let connectionCount = 0;
+        let listeningActive = false;
 
-        const stateConfig = {
-            'waiting_wake': {
-                emoji: '😴',
-                class: 'state-waiting_wake',
-                text: '💤 等待唤醒'
-            },
-            'awakened': {
-                emoji: '👋',
-                class: 'state-awakened',
-                text: '✨ 已唤醒'
-            },
-            'conversing': {
-                emoji: '💬',
-                class: 'state-conversing',
-                text: '💬 对话中'
-            },
-            'idle': {
-                emoji: '⏳',
-                class: 'state-conversing',
-                text: '⏳ 等待输入'
-            },
-            'goodbye': {
-                emoji: '👋',
-                class: 'state-goodbye',
-                text: '👋 再见'
-            }
-        };
-
-        function connect() {
+        // WebSocket 连接
+        function connectWS() {
             if (ws && ws.readyState === WebSocket.OPEN) {
                 log('已经连接到服务器', 'warning');
                 return;
@@ -313,15 +621,12 @@
             ws.onopen = () => {
                 log('✅ WebSocket 连接成功！', 'success');
                 updateConnectionStatus(true);
-                document.getElementById('connectBtn').disabled = true;
-                document.getElementById('disconnectBtn').disabled = false;
+                connectionCount++;
+                document.getElementById('connectionCount').textContent = connectionCount;
             };
 
             ws.onmessage = (event) => {
                 const data = JSON.parse(event.data);
-                messageCount++;
-                document.getElementById('messageCount').textContent = messageCount;
-
                 handleMessage(data);
             };
 
@@ -333,22 +638,77 @@
             ws.onclose = () => {
                 log('🔌 WebSocket 连接已关闭', 'warning');
                 updateConnectionStatus(false);
-                document.getElementById('connectBtn').disabled = false;
-                document.getElementById('disconnectBtn').disabled = true;
+                updateListeningStatus(false);
             };
         }
 
-        function disconnect() {
-            if (ws) {
-                ws.close();
-                ws = null;
+        // 启动监听
+        async function startListening() {
+            try {
+                const response = await fetch('http://localhost:8000/control/start', {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    log('✅ ' + data.message, 'success');
+                    updateListeningStatus(true);
+                } else {
+                    log('❌ ' + data.message, 'error');
+                }
+            } catch (error) {
+                log('❌ 启动监听失败: ' + error.message, 'error');
             }
         }
 
+        // 停止监听
+        async function stopListening() {
+            try {
+                const response = await fetch('http://localhost:8000/control/stop', {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    log('🛑 ' + data.message, 'warning');
+                    updateListeningStatus(false);
+                } else {
+                    log('❌ ' + data.message, 'error');
+                }
+            } catch (error) {
+                log('❌ 停止监听失败: ' + error.message, 'error');
+            }
+        }
+
+        // 清空消息
+        async function clearMessages() {
+            try {
+                const response = await fetch('http://localhost:8000/messages/clear', {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('messagesContainer').innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">😴</div>
+                            <div>等待对话开始...</div>
+                        </div>
+                    `;
+                    messageCount = 0;
+                    document.getElementById('messageCount').textContent = messageCount;
+                    log('🗑️ ' + data.message, 'info');
+                }
+            } catch (error) {
+                log('❌ 清空消息失败: ' + error.message, 'error');
+            }
+        }
+
+        // 处理 WebSocket 消息
         function handleMessage(data) {
             switch (data.type) {
                 case 'connected':
-                    log(`📡 ${data.message}`, 'success');
+                    log(`🔡 ${data.message}`, 'success');
                     log(`🎯 唤醒词: ${data.wake_words.join(', ')}`, 'info');
                     updateState(data.current_state);
                     break;
@@ -372,22 +732,32 @@
                         }
                     }
 
-                    if (state === 'goodbye') {
-                        log(`👋 ${stateData.message}`, 'warning');
-                    }
-
                     updateState(state);
                     break;
 
-                case 'current_state':
-                    log(`📊 当前状态: ${data.state}, 唤醒次数: ${data.total_conversations}`, 'info');
-                    updateState(data.state);
-                    conversationCount = data.total_conversations;
-                    document.getElementById('conversationCount').textContent = conversationCount;
+                case 'message':
+                    // 新增：处理消息事件
+                    addMessage(data.data.message);
+                    messageCount++;
+                    document.getElementById('messageCount').textContent = messageCount;
+                    break;
+
+                case 'listening_started':
+                    updateListeningStatus(true);
+                    log('🎤 ' + data.message, 'success');
+                    break;
+
+                case 'listening_stopped':
+                    updateListeningStatus(false);
+                    log('🛑 ' + data.message, 'warning');
+                    break;
+
+                case 'messages_cleared':
+                    log('🗑️ ' + data.message, 'info');
                     break;
 
                 case 'pong':
-                    log('🏓 Pong received', 'info');
+                    // 心跳响应，不记录
                     break;
 
                 default:
@@ -395,31 +765,91 @@
             }
         }
 
-        function updateState(state) {
-            const config = stateConfig[state] || {
-                emoji: '❓',
-                class: 'state-waiting_wake',
-                text: state
-            };
+        // 添加消息到字幕区域
+        function addMessage(message) {
+            const container = document.getElementById('messagesContainer');
+            
+            // 移除空状态
+            const emptyState = container.querySelector('.empty-state');
+            if (emptyState) {
+                emptyState.remove();
+            }
 
-            const stateElem = document.getElementById('currentState');
-            stateElem.className = `state-badge ${config.class}`;
-            stateElem.textContent = config.text;
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${message.role}`;
+            
+            const time = new Date(message.timestamp * 1000).toLocaleTimeString('zh-CN', {
+                hour12: false,
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
 
-            document.getElementById('stateEmoji').textContent = config.emoji;
+            const avatar = message.role === 'user' ? '👤' : '🦊';
+            const roleName = message.role === 'user' ? '用户' : '助手';
+
+            messageDiv.innerHTML = `
+                <div class="message-header">
+                    <div class="message-avatar">${avatar}</div>
+                    <div class="message-role">${roleName}</div>
+                    <div class="message-time">${time}</div>
+                </div>
+                <div class="message-content">${message.content}</div>
+            `;
+
+            container.appendChild(messageDiv);
+            container.scrollTop = container.scrollHeight;
         }
 
+        // 更新状态显示
+        function updateState(state) {
+            const stateText = document.getElementById('stateText');
+            const stateMap = {
+                'waiting_wake': '💤 等待唤醒',
+                'awakened': '✨ 已唤醒',
+                'conversing': '💬 对话中',
+                'idle': '⏳ 等待输入',
+                'goodbye': '👋 再见'
+            };
+            stateText.textContent = stateMap[state] || state;
+        }
+
+        // 更新连接状态
         function updateConnectionStatus(connected) {
-            const statusElem = document.getElementById('connectionStatus');
+            const dot = document.getElementById('connectionDot');
+            const text = document.getElementById('connectionText');
+            
             if (connected) {
-                statusElem.className = 'status connected';
-                statusElem.textContent = '🟢 已连接';
+                dot.classList.add('active');
+                text.textContent = '已连接';
             } else {
-                statusElem.className = 'status disconnected';
-                statusElem.textContent = '⚫ 未连接';
+                dot.classList.remove('active');
+                text.textContent = '未连接';
             }
         }
 
+        // 更新监听状态
+        function updateListeningStatus(active) {
+            listeningActive = active;
+            const dot = document.getElementById('listeningDot');
+            const text = document.getElementById('listeningText');
+            const startBtn = document.getElementById('startBtn');
+            const stopBtn = document.getElementById('stopBtn');
+            
+            if (active) {
+                dot.classList.add('listening');
+                text.textContent = '监听中';
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+            } else {
+                dot.classList.remove('listening');
+                text.textContent = '未监听';
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+            }
+        }
+
+        // 日志记录
         function log(message, type = 'info') {
             const logContainer = document.getElementById('logContainer');
             const entry = document.createElement('div');
@@ -440,21 +870,16 @@
             logContainer.scrollTop = logContainer.scrollHeight;
         }
 
-        function clearLog() {
-            document.getElementById('logContainer').innerHTML = '';
-            log('日志已清空', 'info');
-        }
-
-        // 心跳检测（可选）
+        // 心跳检测
         setInterval(() => {
             if (ws && ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({ type: 'ping' }));
             }
         }, 30000);
 
-        // 页面加载完成后的提示
+        // 页面加载
         window.onload = () => {
-            log('🚀 前端已加载，点击"连接服务器"开始测试', 'info');
+            log('🚀 前端已加载，点击"连接服务器"开始', 'info');
         };
     </script>
 </body>

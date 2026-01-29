@@ -44,12 +44,29 @@ def state_callback(state: str, data: Dict):
     print(f"   数据: {data}")
     print(f"   当前连接数: {len(active_connections)}")
     
-    message = {
-        "type": "state_change",
-        "state": state,
-        "data": data,
-        "timestamp": asyncio.get_event_loop().time()
-    }
+    # 🔧 修复：message 类型单独处理
+    if state == "message":
+        # 消息事件：直接使用 message 作为类型
+        message = {
+            "type": "message",
+            "data": data,
+            "timestamp": asyncio.get_event_loop().time()
+        }
+    elif state in ["listening_started", "listening_stopped", "messages_cleared"]:
+        # 控制事件：直接使用状态名作为类型
+        message = {
+            "type": state,
+            "message": data.get("message", ""),
+            "timestamp": asyncio.get_event_loop().time()
+        }
+    else:
+        # 其他状态变化：包装为 state_change
+        message = {
+            "type": "state_change",
+            "state": state,
+            "data": data,
+            "timestamp": asyncio.get_event_loop().time()
+        }
     
     asyncio.create_task(broadcast(message))
 
@@ -118,10 +135,11 @@ async def startup():
         conversation_executor
     )
     
-    # 7. 创建永久监听任务
+    # 7. 创建永久监听任务（设置超长超时）
     task = UnifiedTask(
         task_type=TaskType.CONVERSATION,
         priority=10,
+        timeout=86400.0,  # 👈 24小时超时（实际上会永久运行直到手动停止）
         execution_data={"mode": "loop"}  # 👈 注意：不要传 user_text
     )
     
@@ -213,16 +231,22 @@ async def websocket_conversation(websocket: WebSocket):
     finally:
         active_connections.discard(websocket)
 
-# ==================== HTTP 端点（可选）====================
+# ==================== HTTP 端点 ====================
 @app.get("/")
 async def root():
     """根路径"""
     return {
         "name": "数字人对话 API",
-        "version": "1.0.0",
+        "version": "2.0.0",
         "endpoints": {
             "websocket": "/ws/conversation",
-            "status": "/status"
+            "status": "/status",
+            "messages": "/messages",
+            "control": {
+                "start": "/control/start",
+                "stop": "/control/stop",
+                "clear_messages": "/messages/clear"
+            }
         }
     }
 
@@ -232,8 +256,82 @@ async def get_status():
     return {
         "agent_running": agent is not None,
         "conversation_state": conversation_executor.current_state if conversation_executor else None,
+        "listening_active": conversation_executor.listening_active if conversation_executor else False,
         "total_conversations": conversation_executor.total_conversations if conversation_executor else 0,
-        "active_connections": len(active_connections)
+        "active_connections": len(active_connections),
+        "total_messages": len(conversation_executor.messages) if conversation_executor else 0
+    }
+
+@app.get("/messages")
+async def get_messages(limit: int = 20):
+    """获取消息列表（用于字幕显示）"""
+    if not conversation_executor:
+        return {"messages": []}
+    
+    messages = conversation_executor.get_messages(limit=limit)
+    return {
+        "messages": messages,
+        "total": len(conversation_executor.messages)
+    }
+
+@app.post("/control/start")
+async def start_listening():
+    """启动监听"""
+    if not conversation_executor:
+        return {"success": False, "message": "系统未初始化"}
+    
+    conversation_executor.start_listening()
+    
+    # 广播给所有前端
+    await broadcast({
+        "type": "listening_started",
+        "message": "监听已启动",
+        "timestamp": asyncio.get_event_loop().time()
+    })
+    
+    return {
+        "success": True,
+        "message": "监听已启动"
+    }
+
+@app.post("/control/stop")
+async def stop_listening():
+    """停止监听"""
+    if not conversation_executor:
+        return {"success": False, "message": "系统未初始化"}
+    
+    conversation_executor.stop_listening()
+    
+    # 广播给所有前端
+    await broadcast({
+        "type": "listening_stopped",
+        "message": "监听已停止",
+        "timestamp": asyncio.get_event_loop().time()
+    })
+    
+    return {
+        "success": True,
+        "message": "监听已停止"
+    }
+
+@app.post("/messages/clear")
+async def clear_messages():
+    """清空消息列表"""
+    if not conversation_executor:
+        return {"success": False, "message": "系统未初始化"}
+    
+    conversation_executor.clear_messages()
+    
+    # 广播给所有前端
+    await broadcast({
+        "type": "messages_cleared",
+        "message": "消息已清空",
+        "timestamp": asyncio.get_event_loop().time()
+    })
+    
+    return {
+        "success": True,
+        "message": "消息已清空"
     }
 
 # ==================== 启动服务器 ====================
