@@ -1,7 +1,7 @@
 """
 文本切分模块
 """
-from typing import List
+from typing import List, Dict, Tuple
 import re
 
 from ..document_loader.base_loader import Document
@@ -281,3 +281,224 @@ class SemanticSplitter(TextSplitter):
             result.append(sentences[-1].strip())
         
         return result
+    
+class MarkdownStructuredSplitter:
+    """
+    Markdown 结构化分块器
+    
+    特点：
+    1. 保留标题层级（h1, h2, h3...）
+    2. 每个块包含完整的路径（父标题）
+    3. 支持列表项独立分块
+    4. 适合实验室文档/菜单/FAQ等结构化文档
+    """
+    
+    def __init__(
+        self,
+        chunk_size: int = None,
+        chunk_overlap: int = None,
+        keep_heading_hierarchy: bool = True,
+        split_list_items: bool = True,
+        max_heading_levels: int = 4
+    ):
+        """
+        初始化
+        
+        Args:
+            chunk_size: 每个块的最大字符数（软限制）
+            chunk_overlap: 块之间的重叠字符数
+            keep_heading_hierarchy: 是否在块中保留标题层级
+            split_list_items: 是否将列表项拆分为独立块
+            max_heading_levels: 最多保留几级标题（1-6）
+        """
+        self.chunk_size = chunk_size or settings.CHUNK_SIZE
+        self.chunk_overlap = chunk_overlap or settings.CHUNK_OVERLAP
+        self.keep_heading_hierarchy = keep_heading_hierarchy
+        self.split_list_items = split_list_items
+        self.max_heading_levels = max_heading_levels
+    
+    def split_documents(self, documents: List[Document]) -> List[Document]:
+        """切分文档列表"""
+        split_docs = []
+        
+        for doc in documents:
+            chunks = self.split_markdown(doc.content, doc.metadata)
+            split_docs.extend(chunks)
+        
+        return split_docs
+    
+    def split_markdown(self, text: str, base_metadata: Dict) -> List[Document]:
+        """
+        切分 Markdown 文档
+        
+        Args:
+            text: Markdown 文本
+            base_metadata: 原始文档的元数据
+            
+        Returns:
+            List[Document]: 切分后的文档块
+        """
+        # 1. 解析 Markdown 结构
+        sections = self._parse_markdown_structure(text)
+        
+        # 2. 生成文档块
+        chunks = []
+        for i, section in enumerate(sections):
+            # 构建块内容
+            content = self._build_chunk_content(section)
+            
+            # 构建元数据
+            metadata = base_metadata.copy()
+            metadata.update({
+                "chunk_index": i,
+                "total_chunks": len(sections),
+                "chunk_size": len(content),
+                "heading_path": section.get("heading_path", []),
+                "heading_level": section.get("level", 0),
+                "section_type": section.get("type", "text"),
+                "has_list": section.get("has_list", False)
+            })
+            
+            chunks.append(Document(
+                content=content,
+                metadata=metadata
+            ))
+        
+        return chunks
+    
+    def _parse_markdown_structure(self, text: str) -> List[Dict]:
+        """
+        解析 Markdown 结构
+        
+        Returns:
+            List[Dict]: 结构化的段落列表
+            [
+                {
+                    "content": "段落内容",
+                    "heading_path": ["h1 标题", "h2 标题"],
+                    "level": 2,
+                    "type": "text" | "list_item" | "table",
+                    "has_list": bool
+                },
+                ...
+            ]
+        """
+        sections = []
+        lines = text.split('\n')
+        
+        # 当前标题路径（h1, h2, h3...）
+        heading_stack = []
+        current_section = {
+            "content": "",
+            "heading_path": [],
+            "level": 0,
+            "type": "text",
+            "has_list": False
+        }
+        
+        i = 0
+        while i < len(lines):
+            line = lines[i]
+            
+            # 检测标题
+            heading_match = re.match(r'^(#{1,6})\s+(.+)$', line)
+            if heading_match:
+                # 保存当前段落
+                if current_section["content"].strip():
+                    sections.append(current_section.copy())
+                
+                # 更新标题栈
+                level = len(heading_match.group(1))
+                heading_text = heading_match.group(2).strip()
+                
+                # 维护标题层级（保留前 n-1 级）
+                heading_stack = heading_stack[:level-1]
+                heading_stack.append(heading_text)
+                
+                # 重置当前段落
+                current_section = {
+                    "content": "",
+                    "heading_path": heading_stack[:self.max_heading_levels],
+                    "level": level,
+                    "type": "text",
+                    "has_list": False
+                }
+                
+                i += 1
+                continue
+            
+            # 检测列表项
+            list_match = re.match(r'^(\s*)([-*+]|\d+\.)\s+(.+)$', line)
+            if list_match and self.split_list_items:
+                # 保存当前段落
+                if current_section["content"].strip():
+                    sections.append(current_section.copy())
+                
+                # 提取列表项内容（可能跨多行）
+                indent = list_match.group(1)
+                list_content = list_match.group(3)
+                
+                # 读取后续缩进行（属于同一列表项）
+                i += 1
+                while i < len(lines):
+                    next_line = lines[i]
+                    # 如果是更深的缩进，或者是空行，或者是续行
+                    if next_line.startswith(indent + '  ') or next_line.strip() == '':
+                        list_content += '\n' + next_line
+                        i += 1
+                    else:
+                        break
+                
+                # 创建列表项块
+                sections.append({
+                    "content": list_content.strip(),
+                    "heading_path": heading_stack[:self.max_heading_levels],
+                    "level": len(heading_stack),
+                    "type": "list_item",
+                    "has_list": True
+                })
+                
+                # 重置当前段落
+                current_section = {
+                    "content": "",
+                    "heading_path": heading_stack[:self.max_heading_levels],
+                    "level": len(heading_stack),
+                    "type": "text",
+                    "has_list": False
+                }
+                continue
+            
+            # 普通行，添加到当前段落
+            current_section["content"] += line + '\n'
+            if list_match:
+                current_section["has_list"] = True
+            
+            i += 1
+        
+        # 保存最后一个段落
+        if current_section["content"].strip():
+            sections.append(current_section)
+        
+        return sections
+    
+    def _build_chunk_content(self, section: Dict) -> str:
+        """
+        构建块内容（包含标题路径）
+        
+        Args:
+            section: 段落信息
+            
+        Returns:
+            str: 块内容
+        """
+        if not self.keep_heading_hierarchy:
+            return section["content"]
+        
+        # 构建标题路径前缀
+        heading_path = section.get("heading_path", [])
+        if heading_path:
+            # 格式：h1 > h2 > h3
+            path_str = " > ".join(heading_path)
+            return f"【{path_str}】\n{section['content']}"
+        
+        return section["content"]

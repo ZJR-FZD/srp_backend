@@ -101,66 +101,54 @@ class FAISSStore:
         threshold: float = None
     ) -> List[Tuple[Document, float]]:
         """
-        在 FAISS 索引中搜索与查询向量最相似的文档
-        注意:
-        - 文档向量在入库前已做 L2 归一化
-        - 查询向量在搜索前会做 L2 归一化
-        - 使用 IndexFlatL2 / HNSWFlat 等 L2 索引
-        - 实际相似度语义为 Cosine Similarity
-
+        搜索相似文档
+        
+        注意：
+        - 文档向量和查询向量都会做 L2 归一化
+        - FAISS 返回的是 L2 距离（范围 [0, 2]）
+        - 转换为余弦相似度：cosine = 1 - (distance^2 / 2)
+        
         Args:
-            query_vector (np.ndarray):
-                查询向量，形状为 (dim,) 或 (1, dim)
-
-            k (int):
-                返回的最大文档数量，None 时使用 settings.TOP_K
-
-            threshold (float):
-                相似度阈值（Cosine Similarity，下限）
-                常见取值范围: 0.3 ~ 0.7
-
+            query_vector: 查询向量
+            k: 返回文档数量（默认使用 settings.TOP_K）
+            threshold: 余弦相似度阈值（建议 0.3-0.7）
+            
         Returns:
-            List[Tuple[Document, float]]:
-                按相似度降序排列的 (文档, 相似度) 列表
+            List[Tuple[Document, float]]: (文档, 相似度) 列表
         """
         if len(self.documents) == 0:
             return []
-
+        
+        k = k or settings.TOP_K
+        threshold = threshold if threshold is not None else settings.SIMILARITY_THRESHOLD
+        
+        # 确保查询向量是 2D
         if query_vector.ndim == 1:
             query_vector = query_vector.reshape(1, -1)
-
-        # 对查询向量做 L2 归一化
+        
+        # L2 归一化查询向量
         faiss.normalize_L2(query_vector)
-
-        # FAISS 搜索（L2 距离）
-        # distances: shape (1, k)
-        # indices:   shape (1, k)
+        
+        # FAISS 搜索
         distances, indices = self.index.search(query_vector, k)
-
-        results: List[Tuple[Document, float]] = []
-
+        
+        results = []
         for rank, (dist, idx) in enumerate(zip(distances[0], indices[0]), start=1):
-            # FAISS 用 -1 表示无效结果
-            if idx == -1:
+            if idx == -1:  # 无效结果
                 continue
-
-            # L2 distance = 2 - 2 * cosine_similarity
-            # => cosine_similarity = 1 - dist / 2
-            cosine_sim = 1.0 - float(dist) / 2.0
-
-            # Debug 用（可后续删除）
-            print(
-                f"[DEBUG] rank={rank}, idx={idx}, "
-                f"dist={dist:.4f}, cosine={cosine_sim:.4f}"
-            )
-
+            
+            # 👇 修复：正确的余弦相似度转换公式
+            # 对于归一化向量：L2(a,b)^2 = 2 - 2*cos(a,b)
+            # => cos(a,b) = 1 - L2(a,b)^2 / 2
+            cosine_sim = 1.0 - float(dist * dist) / 2.0
+            
             # 相似度阈值过滤
-            if threshold is not None and cosine_sim < threshold:
+            if cosine_sim < threshold:
                 continue
-
+            
             doc = self.documents[idx]
             results.append((doc, cosine_sim))
-
+        
         return results
     
     def get_document_count(self) -> int:
