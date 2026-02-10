@@ -118,6 +118,7 @@ class McpExecutor(BaseTaskExecutor):
                 # 提取所有步骤的执行结果
                 step_results = []
                 final_step_result = None
+                final_tool_output = None  # 👈 新增
                 
                 for step in task.plan.steps:
                     if step.execution_result:
@@ -129,6 +130,17 @@ class McpExecutor(BaseTaskExecutor):
                         if step.status == PlanStepStatus.COMPLETED:
                             final_step_result = step.execution_result
                 
+                # 👇 新增：提取最后一个成功步骤的实际输出
+                if final_step_result and isinstance(final_step_result, dict):
+                    if "formatted_output" in final_step_result:
+                        final_tool_output = final_step_result["formatted_output"]
+                    elif "result" in final_step_result:
+                        result_data = final_step_result["result"]
+                        if isinstance(result_data, dict) and "formatted_output" in result_data:
+                            final_tool_output = result_data["formatted_output"]
+                        else:
+                            final_tool_output = result_data
+                
                 # 构建最终结果
                 task.result = {
                     "success": True,
@@ -137,8 +149,12 @@ class McpExecutor(BaseTaskExecutor):
                     "revision_count": task.plan.revision_count,
                     "step_results": step_results,
                     "final_result": final_step_result,
-                    "result": final_step_result.get("result") if final_step_result and isinstance(final_step_result, dict) else final_step_result
+                    "result": final_tool_output,  # 👈 提取的实际内容
+                    "formatted_output": final_tool_output  # 👈 兼容字段
                 }
+                
+                # 👇 新增：调试日志
+                self._log(task, f"Plan completed, final result={str(final_tool_output)[:100]}")
                 
                 task.transition_to(TaskStatus.COMPLETED, "Plan completed successfully")
                 return
@@ -249,15 +265,35 @@ class McpExecutor(BaseTaskExecutor):
                 # 步骤7：移动到下一步骤
                 task.plan.advance_step()
                 
-                # 👇 新增：设置中间结果（即使还没完成全部计划）
+                # 👇 修复：正确提取和保存工具输出
+                # 优先使用 formatted_output，如果没有则使用 result
+                tool_output = None
+                if isinstance(tool_result, dict):
+                    # 尝试提取 formatted_output
+                    if "formatted_output" in tool_result:
+                        tool_output = tool_result["formatted_output"]
+                    # 否则提取 result 字段
+                    elif "result" in tool_result:
+                        result_data = tool_result["result"]
+                        # 如果 result 是字典且有 formatted_output
+                        if isinstance(result_data, dict) and "formatted_output" in result_data:
+                            tool_output = result_data["formatted_output"]
+                        else:
+                            tool_output = result_data
+                
+                # 设置中间结果（即使还没完成全部计划）
                 task.result = {
                     "success": True,
                     "plan_completed": False,
                     "current_step": task.plan.current_step_index,
                     "total_steps": len(task.plan.steps),
-                    "latest_result": tool_result,  # 最新的工具执行结果
-                    "result": tool_result.get("result")  # 方便访问
+                    "latest_result": tool_result,  # 完整的工具执行结果
+                    "result": tool_output,  # 👈 提取的实际内容（用于 conversation）
+                    "formatted_output": tool_output  # 👈 兼容字段
                 }
+                
+                # 👇 新增：调试日志
+                self._log(task, f"Task result set: result={str(tool_output)[:100]}")
                 
                 task.transition_to(TaskStatus.COMPLETED, f"Step {task.plan.current_step_index} completed")
                 

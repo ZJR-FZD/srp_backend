@@ -70,7 +70,7 @@ class Settings:
     TOP_K: int = 5
     
     # 相似度下限 (0-1) 
-    SIMILARITY_THRESHOLD: float = 0.6
+    SIMILARITY_THRESHOLD: float = 0.35
 
     # ==================== LLM 配置 ====================
     # 默认使用的 LLM: 'qwen', 'deepseek', 'openai'

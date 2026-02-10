@@ -380,13 +380,24 @@ class ConversationExecutorWithWake(BaseTaskExecutor):
             if executor_type == "mcp":
                 mcp_result = await self._call_mcp_tool(task_info)
                 
+                # 👇 详细调试日志
+                print(f"\n{'='*60}")
+                print(f"🔍 [DEBUG] MCP 返回的完整结果:")
+                print(f"  - success: {mcp_result.get('success')}")
+                print(f"  - 所有键: {list(mcp_result.keys())}")
+                if "result" in mcp_result:
+                    print(f"  - result 类型: {type(mcp_result['result'])}")
+                    print(f"  - result 内容: {str(mcp_result['result'])[:300]}")
+                if "formatted_output" in mcp_result:
+                    print(f"  - formatted_output: {mcp_result['formatted_output'][:200]}")
+                print(f"{'='*60}\n")
+                
                 if mcp_result.get("success"):
                     response_text = await self._generate_final_response(
                         user_text, mcp_result
                     )
                 else:
                     response_text = f"抱歉，执行任务时出错了：{mcp_result.get('error', '未知错误')}"
-        
         # 3. 更新历史
         self.conversation_history.append({"role": "user", "content": user_text})
         self.conversation_history.append({"role": "assistant", "content": response_text})
@@ -476,53 +487,50 @@ class ConversationExecutorWithWake(BaseTaskExecutor):
     async def _generate_final_response(self, user_text: str, mcp_result: Dict) -> str:
         """融合 MCP 结果生成回复"""
         
-        # 👇 修复：更智能地提取工具输出
+        print(f"\n🔧 [DEBUG] _generate_final_response 输入:")
+        print(f"  - user_text: {user_text}")
+        print(f"  - mcp_result keys: {list(mcp_result.keys())}")
+        
         tool_output = None
         
-        # 尝试多种路径获取实际结果
-        if "final_result" in mcp_result:
-            tool_output = mcp_result["final_result"]
+        # 1. 优先使用 formatted_output
+        if "formatted_output" in mcp_result:
+            tool_output = mcp_result["formatted_output"]
+            print(f"✅ [DEBUG] 使用 formatted_output: {tool_output[:100]}")
+        
+        # 2. 尝试提取 result
         elif "result" in mcp_result:
-            tool_output = mcp_result["result"]
+            result_data = mcp_result["result"]
+            print(f"🔍 [DEBUG] result 数据类型: {type(result_data)}")
+            
+            # 如果 result 是字典且有 formatted_output
+            if isinstance(result_data, dict):
+                if "formatted_output" in result_data:
+                    tool_output = result_data["formatted_output"]
+                    print(f"✅ [DEBUG] 从 result 中提取 formatted_output")
+                elif "results" in result_data:
+                    # RAG 返回的原始格式
+                    results = result_data["results"]
+                    tool_output = self._format_rag_results(results)
+                    print(f"✅ [DEBUG] 格式化 RAG results: {len(results)} 条")
+                else:
+                    tool_output = str(result_data)
+                    print(f"⚠️ [DEBUG] 使用 str(result_data)")
+            else:
+                tool_output = str(result_data)
+        
+        # 3. 尝试从 step_results 提取
         elif "step_results" in mcp_result and mcp_result["step_results"]:
-            # 如果有步骤结果，取最后一个
             last_step = mcp_result["step_results"][-1]
             tool_output = last_step.get("result")
+            print(f"✅ [DEBUG] 使用 step_results")
         
-        # 如果 tool_output 是嵌套字典，继续提取
-        if isinstance(tool_output, dict):
-            if "result" in tool_output:
-                tool_output = tool_output["result"]
-            elif "content" in tool_output:
-                tool_output = tool_output["content"]
+        # 4. 兜底
+        else:
+            tool_output = "未能获取到有效结果"
+            print(f"⚠️ [DEBUG] 未找到有效结果字段")
         
-        # 格式化输出（处理列表、字典等）
-        if isinstance(tool_output, list):
-            # 如果是搜索结果列表
-            if tool_output and isinstance(tool_output[0], dict):
-                # 提取关键信息（如标题、摘要）
-                formatted_output = []
-                for i, item in enumerate(tool_output[:3], 1):  # 只取前3条
-                    if "title" in item:
-                        formatted_output.append(f"{i}. {item.get('title', '')} - {item.get('snippet', '')[:100]}")
-                    else:
-                        formatted_output.append(f"{i}. {str(item)[:100]}")
-                tool_output = "\n".join(formatted_output)
-            else:
-                tool_output = "\n".join(str(item) for item in tool_output[:5])
-        elif isinstance(tool_output, dict):
-            # 如果是字典，尝试提取 query 和 results
-            if "query" in tool_output and "results" in tool_output:
-                results = tool_output["results"]
-                if results:
-                    formatted_results = []
-                    for i, r in enumerate(results[:3], 1):
-                        title = r.get("title", "")
-                        snippet = r.get("snippet", "")
-                        formatted_results.append(f"{i}. {title}\n   {snippet[:150]}")
-                    tool_output = "\n\n".join(formatted_results)
-                else:
-                    tool_output = "未找到相关结果"
+        print(f"📝 [DEBUG] 最终 tool_output: {tool_output}")
         
         system_prompt = f"""你是一个友好的智能助手。
 

@@ -20,7 +20,10 @@
    # 2. 激活 conda 环境（根据实际环境名调整）
    conda activate intelligent-qa
    
-   # 3. 启动 RAG HTTP 服务（热重载模式）
+   # 3. 如果更改过文件，需要重新向量化入库（可选）
+   python scripts/build_index.py
+   
+   # 4. 启动 RAG HTTP 服务（热重载模式）
    uvicorn rag_http_api:app --host 127.0.0.1 --port 9000 --reload
    ```
    ✅ 启动成功标志：终端显示 `Uvicorn running on http://127.0.0.1:9000`
