@@ -14,7 +14,7 @@ async def main():
     print("[Main] Initializing Robot Agent...")
     
     # 创建 Agent
-    agent = RobotAgent(patrol_interval=30.0)
+    agent = RobotAgent()
     
     # 注册 Actions
     print("[Main] Registering actions...")
