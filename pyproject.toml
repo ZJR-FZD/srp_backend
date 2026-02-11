@@ -1,5 +1,5 @@
 [project]
-name = "robot-agent"
+name = "srp-backend"
 version = "0.1.0"
 description = "智能机器人代理系统 - 集成语音交互、MCP 工具和 RAG 问答"
 readme = "README.md"
@@ -57,14 +57,17 @@ gpu = [
     "faiss-gpu==1.7.2; sys_platform != 'darwin' and python_version < '3.11'",
 ]
 
-# ==================== 告诉 hatch：这是脚本工程，不是包 ====================
-[tool.hatch.build.targets.wheel]
-packages = []
+# ==================== 告诉 setuptools：这是脚本工程，不是包 ====================
+[tool.setuptools]
+py-modules = []
+
+[tool.setuptools.packages.find]
+include = []
 
 # ==================== 构建系统 ====================
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
 
 # ==================== 测试 ====================
 [tool.pytest.ini_options]

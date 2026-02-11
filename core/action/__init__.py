@@ -12,7 +12,8 @@ from core.action.base import (
     ActionMetadata,
 )
 from core.action.speak_action import SpeakAction
-from core.action.listen_action_vad import ListenActionVAD
+from core.action.listen_action_vad import ListenActionVAD as ListenAction
+from core.action.conversation_action_enhanced import ConversationActionEnhanced as ConversationAction
 
 __all__ = [
     "BaseAction",
@@ -20,5 +21,6 @@ __all__ = [
     "ActionResult",
     "ActionMetadata",
     "SpeakAction",
-    "ListenActionVAD",
+    "ListenAction",
+    "ConversationAction",
 ]
