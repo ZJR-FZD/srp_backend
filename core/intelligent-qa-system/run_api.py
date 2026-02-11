@@ -13,7 +13,7 @@ from config.settings import settings
 
 # 从环境变量读取配置
 HOST = os.getenv("RAG_HOST", "0.0.0.0")
-PORT = int(os.getenv("RAG_PORT", "8001"))
+PORT = int(os.getenv("RAG_PORT", "9000"))
 
 if __name__ == "__main__":
     settings.display()

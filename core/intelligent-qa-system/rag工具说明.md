@@ -24,6 +24,10 @@ pip install -r requirements.txt
 ```bash
 conda env create -f environment.yml
 ```
+或者
+```
+uv run run_api.py
+```
 
 ### 2. 配置环境变量
 
