@@ -14,11 +14,13 @@ from typing import Dict, Any, Optional, List
 from core.agent import RobotAgent, AgentState
 from core.room_agent.mqtt import MqttClientManager
 from core.room_agent.mdns import MdnsAdvertiser
+from core.room_agent.devices import DeviceRegistry, DeviceController
 from core.room_agent.models import (
     StateMessage,
     DescriptionMessage,
     HeartbeatMessage,
     SystemMetrics,
+    DeviceCapability,
 )
 import config
 
@@ -68,7 +70,11 @@ class RoomAgent(RobotAgent):
             **mdns_config
         })
 
-        # 设备注册表（后续实现）
+        # 初始化设备注册表和控制器
+        self.device_registry = DeviceRegistry()
+        self.device_controller = DeviceController(self.device_registry)
+
+        # 设备列表（后续实现）
         self.devices: Dict[str, Any] = {}
 
         # 心跳任务
@@ -146,7 +152,18 @@ class RoomAgent(RobotAgent):
             print(f"  Target Device: {control_msg.target_device}")
             print(f"  Action: {control_msg.action}")
             print(f"  Parameters: {control_msg.parameters}")
-            # TODO: 实现设备控制逻辑
+
+            # 使用设备控制器执行动作
+            result = await self.device_controller.control_device(
+                device_id=control_msg.target_device,
+                action=control_msg.action,
+                parameters=control_msg.parameters
+            )
+
+            if result.get("success"):
+                print(f"[RoomAgent] Device control successful: {result.get('result')}")
+            else:
+                print(f"[RoomAgent] Device control failed: {result.get('error')}")
 
         # Describe消息处理器
         async def handle_describe(describe_msg):
@@ -160,13 +177,16 @@ class RoomAgent(RobotAgent):
 
     async def _publish_description(self):
         """发布Agent能力描述"""
+        # 获取所有设备的能力
+        device_capabilities = await self.device_controller.list_device_capabilities()
+
         description = DescriptionMessage(
             message_id=str(time.time_ns()),
             timestamp=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             agent_id=self.agent_id,
             agent_type="room",
             version=self.version,
-            devices=[],  # TODO: 从设备注册表获取
+            devices=device_capabilities,
             capabilities=self.capabilities
         )
 
@@ -175,15 +195,31 @@ class RoomAgent(RobotAgent):
 
     async def _publish_state(self):
         """发布Agent状态"""
+        # 获取所有设备状态
+        all_devices = await self.device_controller.list_all_devices()
+        device_states = []
+        for device in all_devices:
+            try:
+                device_state = await self.device_controller.get_device_state(device.device_id)
+                if device_state:
+                    device_states.append({
+                        "device_id": device_state.device_id,
+                        "state": device_state.state,
+                        "attributes": device_state.attributes
+                    })
+            except Exception as e:
+                print(f"[RoomAgent] Error getting state for device {device.device_id}: {e}")
+
         state = StateMessage(
             message_id=str(time.time_ns()),
             timestamp=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             agent_id=self.agent_id,
-            devices=[],  # TODO: 从设备注册表获取
+            devices=device_states,
             agent_status="operational" if self._room_agent_running else "offline"
         )
 
         await self.mqtt_client.publish_state(state)
+        print(f"[RoomAgent] Published state with {len(device_states)} devices")
 
     async def _heartbeat_loop(self):
         """心跳循环"""
@@ -213,3 +249,50 @@ class RoomAgent(RobotAgent):
 
             await asyncio.sleep(self._heartbeat_interval)
 
+
+    async def register_mcp_tool_as_device(
+        self,
+        device_id: str,
+        device_type: str,
+        tool_name: str,
+        mcp_manager,
+        device_config: dict = None
+    ) -> bool:
+        """注册MCP工具为设备
+
+        Args:
+            device_id: 设备ID
+            device_type: 设备类型
+            tool_name: MCP工具名称
+            mcp_manager: MCP Manager实例
+            device_config: 设备配置
+
+        Returns:
+            bool: 是否成功注册
+        """
+        if device_config is None:
+            device_config = {}
+
+        print(f"[RoomAgent] Registering MCP tool '{tool_name}' as device '{device_id}'")
+
+        try:
+            success = await self.device_controller.register_mcp_tool(
+                device_id=device_id,
+                device_type=device_type,
+                device_config=device_config,
+                mcp_manager=mcp_manager,
+                tool_name=tool_name
+            )
+
+            if success:
+                print(f"[RoomAgent] Successfully registered device '{device_id}'")
+                # 重新发布能力描述
+                await self._publish_description()
+            else:
+                print(f"[RoomAgent] Failed to register device '{device_id}'")
+
+            return success
+
+        except Exception as e:
+            print(f"[RoomAgent] Error registering MCP device: {e}")
+            return False

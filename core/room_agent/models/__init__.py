@@ -7,9 +7,15 @@ from core.room_agent.models.mqtt_messages import (
     DescribeMessage,
     DescriptionMessage,
     HeartbeatMessage,
-    DeviceState,
+    DeviceState as MqttDeviceState,
     DeviceCapability,
     SystemMetrics,
+)
+from core.room_agent.models.device_state import (
+    DeviceState,
+    DeviceType,
+    DeviceCapability,
+    DeviceAction,
 )
 
 __all__ = [
@@ -18,7 +24,10 @@ __all__ = [
     "DescribeMessage",
     "DescriptionMessage",
     "HeartbeatMessage",
-    "DeviceState",
+    "MqttDeviceState",
     "DeviceCapability",
     "SystemMetrics",
+    "DeviceState",
+    "DeviceType",
+    "DeviceAction",
 ]
