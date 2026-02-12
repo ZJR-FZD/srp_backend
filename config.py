@@ -159,3 +159,11 @@ def _extract_key_params(schema: dict) -> str:
 
 # 默认 Prompt（向后兼容）
 ANALYZE_PROMPT = build_analyze_prompt()
+
+# ==================== Room Agent 配置 ====================
+ROOM_AGENT_CONFIG_PATH = os.getenv("ROOM_AGENT_CONFIG_PATH", "config/room_agent.yaml")
+ROOM_ID = os.getenv("ROOM_ID", "bedroom")
+MQTT_BROKER_HOST = os.getenv("MQTT_BROKER_HOST", "localhost")
+MQTT_BROKER_PORT = int(os.getenv("MQTT_BROKER_PORT", "1883"))
+MDNS_ENABLED = os.getenv("MDNS_ENABLED", "true").lower() == "true"
+BEACON_ENABLED = os.getenv("BEACON_ENABLED", "true").lower() == "true"

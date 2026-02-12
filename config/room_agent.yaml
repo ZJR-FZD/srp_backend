@@ -1,0 +1,31 @@
+# Room Agent配置文件
+# 符合HomeSystemAgent.md规范
+
+agent:
+  id: "room-agent-1"
+  room_id: "bedroom"
+  version: "1.0.0"
+
+# MQTT客户端配置（连接到外部broker）
+mqtt:
+  broker:
+    host: "localhost"
+    port: 1883
+    username: null
+    password: null
+
+# mDNS服务广播配置
+mdns:
+  service_name: "bedroom-room-agent"
+  service_type: "_room-agent._tcp.local"
+  mqtt_port: 1883
+  mqtt_ws_port: 9001
+
+# 心跳配置
+heartbeat:
+  interval: 30  # seconds
+
+# 当前Agent的能力（后续可以添加设备能力）
+capabilities:
+  - "device_control"
+  - "scene_activation"
