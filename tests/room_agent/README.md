@@ -13,6 +13,9 @@ tests/room_agent/
 ├── test_device_registry.py       # 设备注册表测试
 ├── test_device_controller.py      # 设备控制器测试
 ├── test_room_agent_integration.py # Room Agent集成测试
+├── test_beacon_config.py        # BLE Beacon配置测试
+├── test_beacon_advertiser.py      # BLE Beacon广播器测试
+├── test_room_agent_beacon_integration.py # Room Agent BLE Beacon集成测试
 └── README.md                      # 本文件
 ```
 
@@ -25,9 +28,6 @@ pytest tests/room_agent/ -v
 
 # 运行特定测试文件
 pytest tests/room_agent/test_mqtt_client.py -v
-
-# 运行特定测试
-pytest tests/room_agent/test_mqtt_client.py::TestMqttClientManager::test_init -v
 
 # 查看测试覆盖率
 pytest tests/room_agent/ --cov=core/room_agent --cov-report=html
@@ -49,16 +49,15 @@ pytest tests/room_agent/ --cov=core/room_agent --cov-report=html
 
 ### 设备注册表
 - ✅ 初始化测试
-- ✅ 设备注册测试（成功/重复）
-- ✅ 设备注销测试
+- ✅ 注册/注销设备测试
+- ✅ 重复注册测试
 - ✅ 设备查询测试
-- ✅ 设备列表测试
 
 ### 设备控制器
 - ✅ 初始化测试
 - ✅ MCP工具注册测试
 - ✅ 设备控制测试
-- ✅ 设备状态查询测试
+- ✅ 状态查询测试
 - ✅ 设备列表测试
 
 ### Room Agent集成
@@ -68,11 +67,32 @@ pytest tests/room_agent/ --cov=core/room_agent --cov-report=html
 - ✅ 能力描述发布测试
 - ✅ MCP工具注册测试
 
+### BLE Beacon配置（Phase 3新增）
+- ✅ BeaconConfig初始化测试
+- ✅ UUID格式验证测试
+- ✅ Major/Minor/Measured Power/Interval范围验证
+- ✅ 字典转换测试
+
+### BLE Beacon广播器（Phase 3新增）
+- ✅ 初始化测试
+- ✅ 启动测试（成功/禁用）
+- ✅ 停止测试
+- ✅ 运行状态测试
+- ✅ 配置更新测试
+- ✅ Beacon信息获取测试
+
+### Room Agent BLE Beacon集成（Phase 3新增）
+- ✅ RoomAgent包含BeaconAdvertiser测试
+- ✅ 启动时Beacon启动测试
+- ✅ 停止时Beacon停止测试
+- ✅ Beacon禁用时不启动测试
+
 ## Mock策略
 
 所有外部依赖都使用Mock：
 - `paho.mqtt.client` - MQTT客户端
 - `zeroconf.Zeroconf` - mDNS服务
+- `bluepy.peripheral.Peripheral` - BLE外设
 - MCP Manager - MCP管理器
 - 设备实例 - MockDevice
 

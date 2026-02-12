@@ -14,6 +14,7 @@ from typing import Dict, Any, Optional, List
 from core.agent import RobotAgent, AgentState
 from core.room_agent.mqtt import MqttClientManager
 from core.room_agent.mdns import MdnsAdvertiser
+from core.room_agent.beacon import BeaconAdvertiser, BeaconConfig
 from core.room_agent.devices import DeviceRegistry, DeviceController
 from core.room_agent.models import (
     StateMessage,
@@ -74,6 +75,11 @@ class RoomAgent(RobotAgent):
         self.device_registry = DeviceRegistry()
         self.device_controller = DeviceController(self.device_registry)
 
+        # 初始化BLE Beacon配置和广播器
+        beacon_config_dict = agent_config.get("beacon", {})
+        beacon_config = BeaconConfig.from_dict(beacon_config_dict)
+        self.beacon_advertiser = BeaconAdvertiser(beacon_config)
+
         # 设备列表（后续实现）
         self.devices: Dict[str, Any] = {}
 
@@ -85,6 +91,7 @@ class RoomAgent(RobotAgent):
         self._room_agent_running = False
 
         print(f"[RoomAgent] Initialized (room: {room_id}, agent: {self.agent_id})")
+        print(f"[RoomAgent] Beacon configured: enabled={beacon_config.enabled}, major={beacon_config.major}")
 
     async def start(self):
         """启动Room Agent"""
@@ -106,6 +113,12 @@ class RoomAgent(RobotAgent):
             await self.mdns_advertiser.start()
         except Exception as e:
             print(f"[RoomAgent] WARNING: Failed to start mDNS advertiser: {e}")
+
+        # 启动BLE Beacon广播
+        try:
+            await self.beacon_advertiser.start()
+        except Exception as e:
+            print(f"[RoomAgent] WARNING: Failed to start BLE beacon advertiser: {e}")
 
         # 发布能力描述
         await self._publish_description()
@@ -134,6 +147,12 @@ class RoomAgent(RobotAgent):
 
         # 停止mDNS广播
         await self.mdns_advertiser.stop()
+
+        # 停止BLE Beacon广播
+        try:
+            await self.beacon_advertiser.stop()
+        except Exception as e:
+            print(f"[RoomAgent] WARNING: Failed to stop BLE beacon advertiser: {e}")
 
         # 断开MQTT连接
         await self.mqtt_client.disconnect()

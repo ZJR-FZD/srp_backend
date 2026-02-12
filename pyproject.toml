@@ -45,6 +45,7 @@ dependencies = [
     "paho-mqtt>=2.1.0",
     # ==================== Room Agent ====================
     "zeroconf>=0.132.0",
+    "bluepy>=0.2.0",  # BLE Beacon（空间感知层）
 ]
 
 [project.optional-dependencies]

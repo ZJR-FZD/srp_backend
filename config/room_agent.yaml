@@ -29,3 +29,12 @@ heartbeat:
 capabilities:
   - "device_control"
   - "scene_activation"
+
+# BLE Beacon配置（空间感知层）
+beacon:
+  enabled: true  # 是否启用BLE Beacon广播
+  uuid: "012345678-0001-0002-0004-0003-0005"  # System-specific UUID（示例，应替换为实际UUID）
+  major: 1  # Room identifier (0-65535)
+  minor: 0  # Zone/Position in room (0-65535)
+  measured_power: -59  # Calibrated RSSI at 1 meter (-59 for standard beacon)
+  interval: 1  # Broadcast interval in seconds
