@@ -20,7 +20,7 @@ async def test_rag_search():
     tool = RAGSearchTool()
     
     test_queries = [
-        "查一下海鲜沙拉多少钱。",
+        "海鲜至尊堡价格。",
     ]
     
     for query in test_queries:

@@ -137,7 +137,7 @@ def build_vector_index(documents, embedding_model=None):
     # 构建索引
     store = manager.build_index(
         documents=documents,
-        batch_size=32,
+        batch_size=25,
         save=True
     )
     

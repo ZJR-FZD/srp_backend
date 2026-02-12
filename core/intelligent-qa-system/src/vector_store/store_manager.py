@@ -31,7 +31,7 @@ class VectorStoreManager:
     def build_index(
         self,
         documents: List[Document],
-        batch_size: int = 32,
+        batch_size: int = 25,
         save: bool = True
     ) -> FAISSStore:
         """

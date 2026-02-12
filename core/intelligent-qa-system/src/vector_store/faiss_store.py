@@ -105,8 +105,8 @@ class FAISSStore:
         
         注意：
         - 文档向量和查询向量都会做 L2 归一化
-        - FAISS 返回的是 L2 距离（范围 [0, 2]）
-        - 转换为余弦相似度：cosine = 1 - (distance^2 / 2)
+        - FAISS 的 IndexFlatL2 返回的是 L2 距离的**平方**（范围 [0, 4]）
+        - 转换为余弦相似度：cosine = 1 - distance / 2
         
         Args:
             query_vector: 查询向量
@@ -137,10 +137,12 @@ class FAISSStore:
             if idx == -1:  # 无效结果
                 continue
             
-            # 👇 修复：正确的余弦相似度转换公式
-            # 对于归一化向量：L2(a,b)^2 = 2 - 2*cos(a,b)
-            # => cos(a,b) = 1 - L2(a,b)^2 / 2
-            cosine_sim = 1.0 - float(dist * dist) / 2.0
+            # ✅ 正确公式：cosine = 1 - dist / 2
+            # FAISS 返回的 dist 已经是 ||a-b||^2
+            cosine_sim = 1.0 - float(dist) / 2.0
+            
+            # 👇 添加调试日志
+            print(f"[DEBUG] rank={rank}, dist={dist:.4f}, cosine={cosine_sim:.4f}")
             
             # 相似度阈值过滤
             if cosine_sim < threshold:
