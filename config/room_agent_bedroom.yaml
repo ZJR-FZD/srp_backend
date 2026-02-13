@@ -1,0 +1,40 @@
+# Room Agent配置文件
+# 符合HomeSystemAgent.md规范
+
+agent:
+  id: "room-agent-1"
+  room_id: "bedroom"
+  version: "1.0.0"
+
+# MQTT客户端配置（连接到外部broker）
+mqtt:
+  broker:
+    host: "localhost"
+    port: 1883
+    username: null
+    password: null
+
+# mDNS服务广播配置
+mdns:
+  service_name: "bedroom-room-agent"
+  service_type: "_room-agent._tcp.local"
+  mqtt_port: 1883
+  mqtt_ws_port: 9001
+
+# 心跳配置
+heartbeat:
+  interval: 30  # seconds
+
+# 当前Agent的能力（后续可以添加设备能力）
+capabilities:
+  - "device_control"
+  - "scene_activation"
+
+# BLE Beacon配置（空间感知层）
+beacon:
+  enabled: true  # 是否启用BLE Beacon广播
+  uuid: "012345678-0001-0002-0004-0003-0005"  # System-specific UUID（示例，应替换为实际UUID）
+  major: 1  # Room identifier (0-65535)
+  minor: 0  # Zone/Position in room (0-65535)
+  measured_power: -59  # Calibrated RSSI at 1 meter (-59 for standard beacon)
+  interval: 1  # Broadcast interval in seconds
