@@ -9,8 +9,8 @@ agent:
 # MQTT客户端配置
 mqtt:
   broker:
-    host: "localhost"
-    port: 1883
+    host: "120.78.228.69"
+    port: 1884
     username: null
     password: null
 

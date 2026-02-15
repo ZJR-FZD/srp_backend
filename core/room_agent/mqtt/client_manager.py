@@ -78,9 +78,11 @@ class MqttClientManager:
         # 订阅自己相关的topics
         self._subscribe_to_topics()
 
-    def _on_disconnect(self, client, userdata, reason_code):
+    def _on_disconnect(self, *args):
         """MQTT断开回调"""
         self._connected = False
+        # args: (client, userdata, reason_code) 或 (client, userdata, reason_code, properties)
+        reason_code = args[2] if len(args) > 2 else 0
         print(f"[MqttClientManager] Disconnected from broker (rc: {reason_code})")
 
         # 如果需要重连

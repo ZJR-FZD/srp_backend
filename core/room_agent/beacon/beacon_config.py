@@ -24,7 +24,7 @@ class BeaconConfig:
         enabled: Whether beacon is enabled
     """
     # UUID: 16字节标识符
-    uuid: str = field(...)
+    uuid: str
 
     # Major值：房间标识符 (0-65535)
     major: int = field(default=0)
